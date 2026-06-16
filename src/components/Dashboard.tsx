@@ -1,7 +1,14 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { ChefHat, Search, Plus, Star, Clock } from 'lucide-react';
+import { Recipe } from '../types';
 
-export default function Dashboard({ recipes, onSelect, onNew }) {
+interface DashboardProps {
+  recipes: Recipe[];
+  onSelect: (recipe: Recipe) => void;
+  onNew: () => void;
+}
+
+export default function Dashboard({ recipes, onSelect, onNew }: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState('');
 
   const filteredRecipes = useMemo(() => {
@@ -51,7 +58,7 @@ export default function Dashboard({ recipes, onSelect, onNew }) {
                 <h3 className="font-semibold text-slate-100 group-hover:text-teal-300 transition-colors leading-tight">
                   {recipe.name}
                 </h3>
-                {recipe.rating && (
+                {recipe.rating && recipe.rating > 0 && (
                   <div className="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded text-xs font-bold border border-amber-500/20">
                     <Star size={12} className="fill-amber-400" /> {recipe.rating}
                   </div>

@@ -18,5 +18,5 @@ export const auth = getAuth(app);
 export const db = getFirestore(app);
 
 // Your internal App ID (from original code)
-export const appId = import.meta.env.VITE_APP_ID || 'default-app-id';
-export const geminiApiKey = import.meta.env.VITE_GEMINI_API_KEY || '';
+export const appId: string = import.meta.env.VITE_APP_ID || 'default-app-id';
+export const geminiApiKey: string = import.meta.env.VITE_GEMINI_API_KEY || '';

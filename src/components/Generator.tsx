@@ -1,21 +1,29 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { RefreshCw, ChefHat } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, appId, geminiApiKey } from '../lib/firebase';
+import { Recipe } from '../types';
 
-export default function Generator({ recipes, onSave, onCancel, userId }) {
+interface GeneratorProps {
+  recipes: Recipe[];
+  onSave: (recipe: Recipe) => void;
+  onCancel: () => void;
+  userId: string;
+}
+
+export default function Generator({ recipes, onSave, onCancel, userId }: GeneratorProps) {
   const [bulkIngredient, setBulkIngredient] = useState('');
   const [cravings, setCravings] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState(null);
+  const [error, setError] = useState<string | null>(null);
 
   const generateRecipe = async () => {
     setIsGenerating(true);
     setError(null);
 
     // Filter past recipes to provide context
-    const highRated = recipes.filter(r => r.rating >= 8).map(r => r.name).slice(0, 3);
-    const lowRated = recipes.filter(r => r.rating < 5).map(r => `${r.name} (Feedback: ${r.feedback})`).slice(0, 3);
+    const highRated = recipes.filter(r => (r.rating || 0) >= 8).map(r => r.name).slice(0, 3);
+    const lowRated = recipes.filter(r => (r.rating || 10) < 5).map(r => `${r.name} (Feedback: ${r.feedback || 'None'})`).slice(0, 3);
 
     const systemPrompt = `You are a highly technical Culinary Optimization Engine. 
 Generate exactly ONE high-flavor, low-prep (under 20 mins, handful of ingredients) workweek meal recipe scaled for exactly 6 portions (for a single adult male).
@@ -81,17 +89,18 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
       const newRecipeData = JSON.parse(resultText);
       
       // Save to Firestore
-      const newRecipe = {
+      const docId = `recipe-${Date.now()}`;
+      const newRecipe: Recipe = {
         ...newRecipeData,
+        id: docId,
         createdAt: Date.now(),
         rating: 0,
         feedback: ''
       };
 
-      const docId = `recipe-${Date.now()}`;
       await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'recipes', docId), newRecipe);
       
-      onSave({ id: docId, ...newRecipe });
+      onSave(newRecipe);
 
     } catch (err) {
       console.error(err);

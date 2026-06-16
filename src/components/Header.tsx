@@ -1,7 +1,12 @@
-import React from 'react';
 import { ChefHat, ArrowLeft } from 'lucide-react';
+import { ViewState } from '../types';
 
-export default function Header({ currentView, setCurrentView }) {
+interface HeaderProps {
+  currentView: ViewState;
+  setCurrentView: (view: ViewState) => void;
+}
+
+export default function Header({ currentView, setCurrentView }: HeaderProps) {
   return (
     <header className="bg-slate-900 border-b border-slate-800 sticky top-0 z-10 shadow-sm">
       <div className="max-w-3xl mx-auto p-4 flex justify-between items-center">

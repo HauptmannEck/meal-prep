@@ -1,12 +1,19 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { ChefHat, ShoppingCart, List, Star, Clock, Beer, Trash2, Save, RefreshCw } from 'lucide-react';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, appId } from '../lib/firebase';
+import { Recipe } from '../types';
 
-export default function RecipeDetail({ recipe, userId, onBack }) {
-  const [activeTab, setActiveTab] = useState('shop'); // 'shop', 'cook', 'review'
-  const [rating, setRating] = useState(recipe.rating || 0);
-  const [feedback, setFeedback] = useState(recipe.feedback || '');
+interface RecipeDetailProps {
+  recipe: Recipe;
+  userId: string;
+  onBack: () => void;
+}
+
+export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailProps) {
+  const [activeTab, setActiveTab] = useState<'shop' | 'cook' | 'review'>('shop');
+  const [rating, setRating] = useState<number>(recipe.rating || 0);
+  const [feedback, setFeedback] = useState<string>(recipe.feedback || '');
   const [isSavingReview, setIsSavingReview] = useState(false);
 
   const saveReview = async () => {
@@ -134,7 +141,7 @@ export default function RecipeDetail({ recipe, userId, onBack }) {
                   type="range" 
                   min="0" max="10" step="0.5"
                   value={rating}
-                  onChange={(e) => setRating(e.target.value)}
+                  onChange={(e) => setRating(Number(e.target.value))}
                   className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
                 />
                 <span className="font-bold text-amber-400 w-8 text-right text-lg">{rating}</span>
