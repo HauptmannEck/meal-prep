@@ -1,15 +1,15 @@
 import { useState, useMemo } from 'react';
 import { ChefHat, Search, Plus, Star, Clock } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
 import { Recipe } from '../types';
 
 interface DashboardProps {
   recipes: Recipe[];
-  onSelect: (recipe: Recipe) => void;
-  onNew: () => void;
 }
 
-export default function Dashboard({ recipes, onSelect, onNew }: DashboardProps) {
+export default function Dashboard({ recipes }: DashboardProps) {
   const [searchTerm, setSearchTerm] = useState('');
+  const navigate = useNavigate();
 
   const filteredRecipes = useMemo(() => {
     return recipes.filter(r => 
@@ -32,7 +32,7 @@ export default function Dashboard({ recipes, onSelect, onNew }: DashboardProps) 
           />
         </div>
         <button 
-          onClick={onNew}
+          onClick={() => navigate('/generate')}
           className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors shadow-lg shadow-teal-500/20 active:scale-95"
         >
           <Plus size={18} /> Generate New Week
@@ -44,14 +44,14 @@ export default function Dashboard({ recipes, onSelect, onNew }: DashboardProps) 
           <ChefHat size={48} className="mx-auto text-slate-700 mb-4" />
           <h3 className="text-lg font-medium text-slate-300 mb-2">No recipes yet</h3>
           <p className="text-slate-500 max-w-sm mx-auto mb-6">Initialize your directory by generating your first week of high-efficiency meals.</p>
-          <button onClick={onNew} className="text-teal-400 font-medium hover:text-teal-300">Start Generator &rarr;</button>
+          <button onClick={() => navigate('/generate')} className="text-teal-400 font-medium hover:text-teal-300">Start Generator &rarr;</button>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {filteredRecipes.map(recipe => (
             <div 
               key={recipe.id} 
-              onClick={() => onSelect(recipe)}
+              onClick={() => navigate(`/recipe/${recipe.id}`)}
               className="bg-slate-900 border border-slate-800 p-5 rounded-xl cursor-pointer hover:border-teal-500/30 hover:bg-slate-800/50 transition-all group flex flex-col h-full"
             >
               <div className="flex justify-between items-start mb-2">

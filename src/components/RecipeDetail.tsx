@@ -3,18 +3,39 @@ import { ChefHat, ShoppingCart, List, Star, Clock, Trash2, Save, RefreshCw } fro
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, appId } from '../lib/firebase';
 import { Recipe } from '../types';
+import { useParams, useNavigate } from 'react-router-dom';
 
 interface RecipeDetailProps {
-  recipe: Recipe;
+  recipes: Recipe[];
   userId: string;
-  onBack: () => void;
 }
 
-export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailProps) {
+export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
+  const { id } = useParams();
+  const navigate = useNavigate();
+  
+  const recipe = recipes.find(r => r.id === id);
+
   const [activeTab, setActiveTab] = useState<'shop' | 'cook' | 'review'>('shop');
-  const [rating, setRating] = useState<number>(recipe.rating || 0);
-  const [feedback, setFeedback] = useState<string>(recipe.feedback || '');
+  const [rating, setRating] = useState<number | string>(recipe?.rating || 0);
+  const [feedback, setFeedback] = useState(recipe?.feedback || '');
   const [isSavingReview, setIsSavingReview] = useState(false);
+
+  if (!recipe) {
+    return (
+      <div className="p-12 text-center text-slate-400 animate-in fade-in">
+        <ChefHat size={48} className="mx-auto mb-4 opacity-50" />
+        <h2 className="text-xl font-semibold mb-2 text-slate-300">Recipe not found</h2>
+        <p className="mb-6">This recipe might have been deleted or the URL is incorrect.</p>
+        <button 
+          onClick={() => navigate('/')}
+          className="text-teal-400 font-medium hover:text-teal-300 transition-colors"
+        >
+          &larr; Return to Directory
+        </button>
+      </div>
+    );
+  }
 
   const saveReview = async () => {
     setIsSavingReview(true);
@@ -49,21 +70,29 @@ export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailPro
   const deleteRecipe = async () => {
     try {
       await deleteDoc(doc(db, 'artifacts', appId, 'users', userId, 'recipes', recipe.id));
-      onBack();
+      navigate('/');
     } catch (err) {
-      console.error("Delete failed", err);
+      console.error(err);
     }
   };
 
   return (
-    <div className="space-y-6 animate-in fade-in slide-in-from-right-4">
-      {/* Header Info */}
-      <div className="bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-800 relative overflow-hidden">
-        <div className="absolute top-0 right-0 p-8 opacity-5">
-          <ChefHat size={120} />
-        </div>
-        <div className="relative z-10">
-          <h2 className="text-2xl font-bold text-slate-100 mb-3 leading-tight">{recipe.name}</h2>
+    <div className="animate-in fade-in duration-300">
+      <div className="bg-slate-900 border border-slate-800 rounded-2xl overflow-hidden shadow-xl">
+        {/* Header Section */}
+        <div className="p-6 md:p-8 border-b border-slate-800">
+          <div className="flex justify-between items-start mb-4">
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-100 leading-tight pr-4">
+              {recipe.name}
+            </h2>
+            <button 
+              onClick={deleteRecipe}
+              className="p-2 text-slate-500 hover:text-red-400 hover:bg-red-400/10 rounded-lg transition-colors border border-transparent hover:border-red-400/20"
+              title="Delete Recipe"
+            >
+              <Trash2 size={20} />
+            </button>
+          </div>
           
           <div className="flex flex-wrap gap-2 mb-4">
             {recipe.tags?.map(tag => (
@@ -83,32 +112,33 @@ export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailPro
             </span>
           </div>
         </div>
-      </div>
 
-      {/* Tabs */}
-      <div className="flex p-1 bg-slate-900 border border-slate-800 rounded-xl">
-        <button 
-          onClick={() => setActiveTab('shop')}
-          className={`flex-1 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'shop' ? 'bg-slate-800 text-teal-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <ShoppingCart size={16} /> Shopping List
-        </button>
-        <button 
-          onClick={() => setActiveTab('cook')}
-          className={`flex-1 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'cook' ? 'bg-slate-800 text-teal-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <List size={16} /> Procedure
-        </button>
-        <button 
-          onClick={() => setActiveTab('review')}
-          className={`flex-1 py-2.5 text-sm font-medium rounded-lg flex items-center justify-center gap-2 transition-all ${activeTab === 'review' ? 'bg-slate-800 text-amber-400 shadow-sm' : 'text-slate-500 hover:text-slate-300'}`}
-        >
-          <Star size={16} className={activeTab === 'review' ? 'fill-amber-400/20' : ''} /> Review Log
-        </button>
-      </div>
+        {/* Navigation Tabs */}
+        <div className="flex border-b border-slate-800">
+          <button 
+            onClick={() => setActiveTab('shop')}
+            className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${activeTab === 'shop' ? 'border-teal-500 text-teal-400 bg-teal-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+          >
+            <ShoppingCart size={18} /> <span className="hidden sm:inline">Shopping List</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('cook')}
+            className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${activeTab === 'cook' ? 'border-teal-500 text-teal-400 bg-teal-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+          >
+            <List size={18} /> <span className="hidden sm:inline">Procedure</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('review')}
+            className={`flex-1 py-4 text-sm font-medium flex items-center justify-center gap-2 transition-colors border-b-2 ${activeTab === 'review' ? 'border-teal-500 text-teal-400 bg-teal-500/5' : 'border-transparent text-slate-400 hover:text-slate-200 hover:bg-slate-800/50'}`}
+          >
+            <Star size={18} /> <span className="hidden sm:inline">Review</span>
+          </button>
+        </div>
 
-      {/* Tab Content */}
-      <div className="bg-slate-900 p-5 md:p-6 rounded-2xl border border-slate-800 min-h-[300px]">
+        {/* Content Area */}
+        <div className="p-6 md:p-8 bg-slate-950/30">
+          
+        {/* Shopping List Tab */}
         {activeTab === 'shop' && (
           <div className="space-y-1">
             <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">Scaled for 6 Meals</h3>
@@ -132,71 +162,68 @@ export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailPro
           </div>
         )}
 
+        {/* Procedure Tab */}
         {activeTab === 'cook' && (
-          <div className="space-y-1">
-            <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">Batch Prep Sequence</h3>
-            <ol className="space-y-4">
-              {recipe.procedure?.map((step, idx) => (
-                <li key={idx} className="flex gap-4 items-start">
-                  <div className="flex-shrink-0 w-7 h-7 rounded-full bg-slate-800 text-teal-500 border border-slate-700 flex items-center justify-center text-sm font-bold mt-0.5">
+          <div className="space-y-6">
+            {recipe.procedure?.map((step, idx) => {
+              const parts = step.split(': ');
+              return (
+                <div key={idx} className="flex gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800">
+                  <div className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold border border-teal-500/20">
                     {idx + 1}
                   </div>
-                  <p className="text-slate-300 leading-relaxed">{step}</p>
-                </li>
-              ))}
-            </ol>
+                  <p className="text-slate-300 leading-relaxed pt-1">
+                    {parts.length > 1 ? (
+                      <><span className="font-semibold text-teal-300">{parts[0]}: </span>{parts.slice(1).join(': ')}</>
+                    ) : (
+                      step
+                    )}
+                  </p>
+                </div>
+              );
+            })}
           </div>
         )}
 
+        {/* Review Tab */}
         {activeTab === 'review' && (
-          <div className="space-y-5 animate-in fade-in">
-            <div className="bg-amber-500/10 border border-amber-500/20 rounded-xl p-4 text-sm text-amber-200/80 mb-6">
-              Data logged here is fed back into the AI engine for future generation sequences. Be explicit about textures and flavors.
-            </div>
-
+          <div className="max-w-md space-y-6">
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">Score (0-10)</label>
-              <div className="flex items-center gap-4">
-                <input 
-                  type="range" 
-                  min="0" max="10" step="0.5"
-                  value={rating}
-                  onChange={(e) => setRating(Number(e.target.value))}
-                  className="w-full h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer accent-amber-500"
-                />
-                <span className="font-bold text-amber-400 w-8 text-right text-lg">{rating}</span>
+              <label className="block text-sm font-medium text-slate-400 mb-3">Overall Score (1-10)</label>
+              <div className="flex gap-2">
+                {[1,2,3,4,5,6,7,8,9,10].map(num => (
+                  <button
+                    key={num}
+                    onClick={() => setRating(num)}
+                    className={`w-8 h-8 md:w-10 md:h-10 rounded flex items-center justify-center text-sm font-bold transition-all ${rating === num ? 'bg-amber-500 text-slate-950 scale-110 shadow-lg shadow-amber-500/20' : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'}`}
+                  >
+                    {num}
+                  </button>
+                ))}
               </div>
             </div>
 
             <div>
-              <label className="block text-sm font-medium text-slate-400 mb-2">Technical Feedback</label>
+              <label className="block text-sm font-medium text-slate-400 mb-2">Mechanics Feedback</label>
               <textarea 
                 value={feedback}
                 onChange={(e) => setFeedback(e.target.value)}
-                placeholder="e.g., Too dry, needed more acid. Asparagus burned at 12 mins."
-                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-3 text-sm focus:outline-none focus:border-amber-500/50 text-slate-200 placeholder:text-slate-600 min-h-[120px] resize-y"
+                placeholder="What worked? What should the engine avoid next time?"
+                className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 h-32 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/50 text-slate-200 placeholder:text-slate-600 resize-none"
               />
             </div>
 
-            <div className="flex justify-between items-center pt-4 border-t border-slate-800">
-              <button 
-                onClick={deleteRecipe}
-                className="text-red-400 hover:text-red-300 text-sm flex items-center gap-2 p-2 hover:bg-red-400/10 rounded-lg transition-colors"
-              >
-                <Trash2 size={16} /> Delete Record
-              </button>
-              
-              <button 
-                onClick={saveReview}
-                disabled={isSavingReview}
-                className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold px-6 py-2.5 rounded-lg flex items-center gap-2 transition-all disabled:opacity-50 active:scale-95"
-              >
-                {isSavingReview ? <RefreshCw size={16} className="animate-spin" /> : <Save size={16} />}
-                {isSavingReview ? 'Saving...' : 'Log Data'}
-              </button>
-            </div>
+            <button 
+              onClick={saveReview}
+              className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-6 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-teal-500/20"
+            >
+              {isSavingReview ? <RefreshCw size={18} className="animate-spin" /> : <Save size={18} />}
+              {isSavingReview ? 'Saving...' : 'Save Feedback'}
+            </button>
           </div>
         )}
+
+        </div>
       </div>
     </div>
   );

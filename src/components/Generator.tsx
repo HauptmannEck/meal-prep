@@ -3,19 +3,19 @@ import { RefreshCw, ChefHat, Clock, ArrowLeft } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, appId, geminiApiKey } from '../lib/firebase';
 import { Recipe } from '../types';
+import { useNavigate } from 'react-router-dom';
 
 interface GeneratorProps {
   recipes: Recipe[];
-  onSave: (recipe: Recipe) => void;
-  onCancel: () => void;
   userId: string;
 }
 
-export default function Generator({ recipes, onSave, onCancel, userId }: GeneratorProps) {
+export default function Generator({ recipes, userId }: GeneratorProps) {
   const [bulkIngredient, setBulkIngredient] = useState('');
   const [cravings, setCravings] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const navigate = useNavigate();
   
   // Array of 3 AI-generated options
   const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(null);
@@ -128,7 +128,7 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
       };
 
       await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'recipes', docId), newRecipe);
-      onSave(newRecipe);
+      navigate(`/recipe/${docId}`);
     } catch (err) {
       console.error("Error saving selected recipe:", err);
       setError("Failed to save selected recipe.");
@@ -217,7 +217,7 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
 
         <div className="flex gap-3 pt-4">
           <button 
-            onClick={onCancel}
+            onClick={() => navigate('/')}
             disabled={isGenerating}
             className="px-4 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50"
           >

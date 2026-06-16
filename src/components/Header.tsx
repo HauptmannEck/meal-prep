@@ -1,18 +1,18 @@
 import { useState, useRef, useEffect } from 'react';
 import { ChefHat, ArrowLeft, LogOut, ChevronDown, User as UserIcon } from 'lucide-react';
-import { ViewState } from '../types';
 import { User, signOut } from 'firebase/auth';
 import { auth } from '../lib/firebase';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface HeaderProps {
-  currentView: ViewState;
-  setCurrentView: (view: ViewState) => void;
   user: User;
 }
 
-export default function Header({ currentView, setCurrentView, user }: HeaderProps) {
+export default function Header({ user }: HeaderProps) {
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const location = useLocation();
+  const navigate = useNavigate();
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
@@ -45,9 +45,9 @@ export default function Header({ currentView, setCurrentView, user }: HeaderProp
         </div>
         
         <div className="flex items-center gap-3">
-          {currentView !== 'dashboard' && (
+          {location.pathname !== '/' && (
             <button 
-              onClick={() => setCurrentView('dashboard')}
+              onClick={() => navigate('/')}
               className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 text-sm font-medium bg-slate-800/50 px-3 py-2 rounded-md shrink-0 border border-transparent hover:border-slate-700"
             >
               <ArrowLeft size={16} /> <span className="hidden sm:inline">Directory</span>

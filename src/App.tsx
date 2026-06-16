@@ -1,19 +1,18 @@
 import { useState, useEffect } from 'react';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { collection, onSnapshot, DocumentData, QuerySnapshot } from 'firebase/firestore';
+import { Routes, Route } from 'react-router-dom';
 import { auth, db, appId } from './lib/firebase';
 
 import Header from './components/Header';
 import Dashboard from './components/Dashboard';
 import Generator from './components/Generator';
 import RecipeDetail from './components/RecipeDetail';
-import { Recipe, ViewState } from './types';
+import { Recipe } from './types';
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [currentView, setCurrentView] = useState<ViewState>('dashboard'); 
-  const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
 
   // --- Authentication ---
@@ -53,7 +52,7 @@ export default function App() {
           ...doc.data()
         })) as Recipe[];
         
-        // Sort in memory (Rule 2: No complex queries)
+        // Sort in memory
         fetchedRecipes.sort((a, b) => b.createdAt - a.createdAt);
         setRecipes(fetchedRecipes);
       },
@@ -94,31 +93,14 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-slate-950 text-slate-200 font-sans selection:bg-teal-500/30">
-      <Header currentView={currentView} setCurrentView={setCurrentView} user={user} />
+      <Header user={user} />
       
       <main className="max-w-3xl mx-auto p-4 md:p-6">
-        {currentView === 'dashboard' && (
-          <Dashboard 
-            recipes={recipes} 
-            onSelect={(r) => { setSelectedRecipe(r); setCurrentView('detail'); }} 
-            onNew={() => setCurrentView('generate')} 
-          />
-        )}
-        {currentView === 'generate' && (
-          <Generator 
-            recipes={recipes} 
-            onSave={(r) => { setSelectedRecipe(r); setCurrentView('detail'); }}
-            onCancel={() => setCurrentView('dashboard')}
-            userId={user.uid}
-          />
-        )}
-        {currentView === 'detail' && selectedRecipe && (
-          <RecipeDetail 
-            recipe={selectedRecipe} 
-            userId={user.uid}
-            onBack={() => { setSelectedRecipe(null); setCurrentView('dashboard'); }}
-          />
-        )}
+        <Routes>
+          <Route path="/" element={<Dashboard recipes={recipes} />} />
+          <Route path="/generate" element={<Generator recipes={recipes} userId={user.uid} />} />
+          <Route path="/recipe/:id" element={<RecipeDetail recipes={recipes} userId={user.uid} />} />
+        </Routes>
       </main>
     </div>
   );
