@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, User } from 'firebase/auth';
+import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { collection, onSnapshot, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { auth, db, appId } from './lib/firebase';
 
@@ -18,8 +18,13 @@ export default function App() {
 
   // --- Authentication ---
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
+    const unsubscribe = onAuthStateChanged(auth, async (currentUser) => {
+      if (currentUser?.isAnonymous) {
+        await signOut(auth);
+        setUser(null);
+      } else {
+        setUser(currentUser);
+      }
       setLoading(false);
     });
     return () => unsubscribe();
