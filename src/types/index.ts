@@ -8,7 +8,6 @@ export interface Recipe {
   name: string;
   prepTime: number;
   tags: string[];
-  beerPairing?: string;
   shoppingList: ShoppingItem[];
   procedure: string[];
   createdAt: number;

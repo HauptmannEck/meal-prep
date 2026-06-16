@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ChefHat, ShoppingCart, List, Star, Clock, Beer, Trash2, Save, RefreshCw } from 'lucide-react';
+import { ChefHat, ShoppingCart, List, Star, Clock, Trash2, Save, RefreshCw } from 'lucide-react';
 import { doc, setDoc, deleteDoc } from 'firebase/firestore';
 import { db, appId } from '../lib/firebase';
 import { Recipe } from '../types';
@@ -62,10 +62,6 @@ export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailPro
           <div className="flex flex-wrap gap-4 text-sm text-slate-400 bg-slate-950/50 p-3 rounded-xl border border-slate-800/50">
             <span className="flex items-center gap-1.5 text-slate-300">
               <Clock size={16} className="text-teal-500"/> {recipe.prepTime} mins
-            </span>
-            <span className="flex items-center gap-1.5 text-amber-200 border-l border-slate-700 pl-4">
-              <Beer size={16} className="text-amber-500"/> 
-              <span className="truncate max-w-[200px] md:max-w-none" title={recipe.beerPairing}>{recipe.beerPairing || "No pairing generated."}</span>
             </span>
           </div>
         </div>

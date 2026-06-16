@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { RefreshCw, ChefHat } from 'lucide-react';
+import { RefreshCw, ChefHat, Clock, ArrowLeft } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, appId, geminiApiKey } from '../lib/firebase';
 import { Recipe } from '../types';
@@ -16,17 +16,23 @@ export default function Generator({ recipes, onSave, onCancel, userId }: Generat
   const [cravings, setCravings] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Array of 3 AI-generated options
+  const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(null);
 
-  const generateRecipe = async () => {
+  const generateOptions = async () => {
     setIsGenerating(true);
     setError(null);
+    setGeneratedOptions(null);
 
     // Filter past recipes to provide context
     const highRated = recipes.filter(r => (r.rating || 0) >= 8).map(r => r.name).slice(0, 3);
     const lowRated = recipes.filter(r => (r.rating || 10) < 5).map(r => `${r.name} (Feedback: ${r.feedback || 'None'})`).slice(0, 3);
+    const recentMeals = recipes.slice(0, 5).map(r => r.name);
 
     const systemPrompt = `You are a highly technical Culinary Optimization Engine. 
-Generate exactly ONE high-flavor, low-prep (under 20 mins, handful of ingredients) workweek meal recipe scaled for exactly 6 portions (for a single adult male).
+Generate exactly 3 HIGHLY DISTINCT high-flavor, low-prep (under 20 mins, handful of ingredients) workweek meal recipes scaled for exactly 6 portions (for a single adult male).
+The 3 options MUST vary significantly in primary protein source, flavor profile, and preparation style to provide excellent variance.
 
 USER CONTEXT:
 - Loves bold flavors (gochujang, za'atar, harissa).
@@ -36,22 +42,25 @@ USER CONTEXT:
 - Specific User Request: ${cravings || 'Standard high-protein rotation.'}
 - Bulk Ingredient to utilize: ${bulkIngredient || 'None.'}
 
-CRITICAL: The user frequently visits MSP breweries (Wooden Ship, Inbound, etc.). Suggest a specific craft beer style pairing (preferably wheat beers or modern craft profiles) that matches this meal perfectly.
+CRITICAL: Do NOT generate variations of these recent meals: ${recentMeals.join(', ') || 'None.'}
 
 OUTPUT FORMAT:
 Respond ONLY with a valid JSON object matching this schema perfectly:
 {
-  "name": "Creative but descriptive name",
-  "prepTime": 15,
-  "tags": ["high-protein", "one-pan", "spicy", "tag4"],
-  "beerPairing": "Brief description of a beer style pairing and why",
-  "shoppingList": [
-    { "item": "Ground Turkey (93% lean)", "amount": "3 lbs" },
-    { "item": "Slaw Mix", "amount": "3 bags" }
-  ],
-  "procedure": [
-    "Step 1: clear and concise",
-    "Step 2: clear and concise"
+  "options": [
+    {
+      "name": "Creative but descriptive name",
+      "prepTime": 15,
+      "tags": ["high-protein", "one-pan", "spicy"],
+      "shoppingList": [
+        { "item": "Ground Turkey (93% lean)", "amount": "3 lbs" },
+        { "item": "Slaw Mix", "amount": "3 bags" }
+      ],
+      "procedure": [
+        "Step 1: clear and concise",
+        "Step 2: clear and concise"
+      ]
+    }
   ]
 }`;
 
@@ -66,7 +75,7 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              contents: [{ parts: [{ text: 'Generate meal configuration JSON.' }] }],
+              contents: [{ parts: [{ text: 'Generate 3 distinct meal configuration options as JSON.' }] }],
               systemInstruction: { parts: [{ text: systemPrompt }] },
               generationConfig: { responseMimeType: "application/json" }
             })
@@ -86,12 +95,30 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
 
       if (!resultText) throw new Error("Failed to extract JSON from AI response.");
       
-      const newRecipeData = JSON.parse(resultText);
+      const parsedData = JSON.parse(resultText);
+      if (!parsedData.options || !Array.isArray(parsedData.options) || parsedData.options.length === 0) {
+        throw new Error("AI returned invalid JSON schema.");
+      }
       
-      // Save to Firestore
+      setGeneratedOptions(parsedData.options);
+
+    } catch (err) {
+      console.error(err);
+      setError("Engine failed to generate recipes. Please try again.");
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  const selectRecipe = async (option: Partial<Recipe>) => {
+    try {
       const docId = `recipe-${Date.now()}`;
       const newRecipe: Recipe = {
-        ...newRecipeData,
+        name: option.name || "Untitled Meal",
+        prepTime: option.prepTime || 15,
+        tags: option.tags || [],
+        shoppingList: option.shoppingList || [],
+        procedure: option.procedure || [],
         id: docId,
         createdAt: Date.now(),
         rating: 0,
@@ -99,17 +126,61 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
       };
 
       await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'recipes', docId), newRecipe);
-      
       onSave(newRecipe);
-
     } catch (err) {
-      console.error(err);
-      setError("Engine failed to generate recipe. Please try again.");
-    } finally {
-      setIsGenerating(false);
+      console.error("Error saving selected recipe:", err);
+      setError("Failed to save selected recipe.");
     }
   };
 
+  // If we have options, show the Selection UI
+  if (generatedOptions && generatedOptions.length > 0) {
+    return (
+      <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+        <div className="flex items-center justify-between">
+          <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
+            <ChefHat className="text-teal-400" /> Choose Your Matrix
+          </h2>
+          <button 
+            onClick={() => setGeneratedOptions(null)}
+            className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
+          >
+            <ArrowLeft size={16} /> Discard & Start Over
+          </button>
+        </div>
+        
+        <p className="text-slate-400 text-sm">Select one of these distinct configurations for your current workweek.</p>
+
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          {generatedOptions.map((opt, idx) => (
+            <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-teal-500/30 transition-colors">
+              <div>
+                <h3 className="font-bold text-slate-100 mb-3 text-lg leading-tight">{opt.name}</h3>
+                <div className="flex items-center gap-1.5 text-sm text-slate-400 mb-4">
+                  <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
+                </div>
+                <div className="flex flex-wrap gap-2 mb-6">
+                  {opt.tags?.slice(0,4).map(tag => (
+                    <span key={tag} className="text-xs bg-slate-950 text-slate-400 px-2 py-1 rounded-md border border-slate-800">
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              </div>
+              <button 
+                onClick={() => selectRecipe(opt)}
+                className="w-full bg-slate-800 hover:bg-teal-500 hover:text-slate-950 text-teal-400 font-semibold py-2.5 rounded-lg transition-all border border-slate-700 hover:border-teal-400"
+              >
+                Select This Meal
+              </button>
+            </div>
+          ))}
+        </div>
+      </div>
+    );
+  }
+
+  // Input UI
   return (
     <div className="max-w-xl mx-auto bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl animate-in fade-in slide-in-from-bottom-4">
       <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-100">
@@ -150,14 +221,14 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
             Cancel
           </button>
           <button 
-            onClick={generateRecipe}
+            onClick={generateOptions}
             disabled={isGenerating}
             className="flex-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
           >
             {isGenerating ? (
               <><RefreshCw size={18} className="animate-spin" /> Processing Matrix...</>
             ) : (
-              <><ChefHat size={18} /> Execute Generation</>
+              <><ChefHat size={18} /> Generate 3 Options</>
             )}
           </button>
         </div>
