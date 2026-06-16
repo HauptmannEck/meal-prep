@@ -50,6 +50,7 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
   "options": [
     {
       "name": "Creative but descriptive name",
+      "description": "A mouthwatering 1-2 sentence description explaining the dish, its texture, and flavor profile.",
       "prepTime": 15,
       "tags": ["high-protein", "one-pan", "spicy"],
       "shoppingList": [
@@ -115,6 +116,7 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
       const docId = `recipe-${Date.now()}`;
       const newRecipe: Recipe = {
         name: option.name || "Untitled Meal",
+        description: option.description || "No description provided.",
         prepTime: option.prepTime || 15,
         tags: option.tags || [],
         shoppingList: option.shoppingList || [],
@@ -155,8 +157,9 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
           {generatedOptions.map((opt, idx) => (
             <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-teal-500/30 transition-colors">
               <div>
-                <h3 className="font-bold text-slate-100 mb-3 text-lg leading-tight">{opt.name}</h3>
-                <div className="flex items-center gap-1.5 text-sm text-slate-400 mb-4">
+                <h3 className="font-bold text-slate-100 mb-2 text-lg leading-tight">{opt.name}</h3>
+                <p className="text-sm text-slate-400 mb-3 line-clamp-3">{opt.description}</p>
+                <div className="flex items-center gap-1.5 text-sm text-slate-300 mb-4 font-medium">
                   <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
                 </div>
                 <div className="flex flex-wrap gap-2 mb-6">

@@ -54,16 +54,19 @@ export default function Dashboard({ recipes, onSelect, onNew }: DashboardProps) 
               onClick={() => onSelect(recipe)}
               className="bg-slate-900 border border-slate-800 p-5 rounded-xl cursor-pointer hover:border-teal-500/30 hover:bg-slate-800/50 transition-all group flex flex-col h-full"
             >
-              <div className="flex justify-between items-start mb-3">
+              <div className="flex justify-between items-start mb-2">
                 <h3 className="font-semibold text-slate-100 group-hover:text-teal-300 transition-colors leading-tight">
                   {recipe.name}
                 </h3>
                 {recipe.rating && recipe.rating > 0 && (
-                  <div className="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded text-xs font-bold border border-amber-500/20">
+                  <div className="flex items-center gap-1 bg-amber-500/10 text-amber-400 px-2 py-0.5 rounded text-xs font-bold border border-amber-500/20 shrink-0">
                     <Star size={12} className="fill-amber-400" /> {recipe.rating}
                   </div>
                 )}
               </div>
+              <p className="text-xs text-slate-400 mb-4 line-clamp-2 leading-relaxed">
+                {recipe.description}
+              </p>
               <div className="flex flex-wrap gap-2 mb-4 mt-auto">
                 {recipe.tags?.slice(0, 3).map(tag => (
                   <span key={tag} className="text-xs bg-slate-950 text-slate-400 px-2 py-1 rounded-md border border-slate-800">

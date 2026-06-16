@@ -58,9 +58,13 @@ export default function RecipeDetail({ recipe, userId, onBack }: RecipeDetailPro
               </span>
             ))}
           </div>
+          
+          <p className="text-slate-300 text-sm mb-5 leading-relaxed max-w-2xl">
+            {recipe.description}
+          </p>
 
           <div className="flex flex-wrap gap-4 text-sm text-slate-400 bg-slate-950/50 p-3 rounded-xl border border-slate-800/50">
-            <span className="flex items-center gap-1.5 text-slate-300">
+            <span className="flex items-center gap-1.5 text-slate-300 font-medium">
               <Clock size={16} className="text-teal-500"/> {recipe.prepTime} mins
             </span>
           </div>

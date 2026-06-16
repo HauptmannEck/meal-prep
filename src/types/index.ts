@@ -6,6 +6,7 @@ export interface ShoppingItem {
 export interface Recipe {
   id: string;
   name: string;
+  description: string;
   prepTime: number;
   tags: string[];
   shoppingList: ShoppingItem[];
