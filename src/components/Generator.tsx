@@ -1,57 +1,63 @@
-import { useState, useEffect } from 'react';
-import { RefreshCw, ChefHat, Clock, ArrowLeft, X } from 'lucide-react';
-import { doc, setDoc } from 'firebase/firestore';
-import { db, appId, geminiApiKey } from '../lib/firebase';
-import { Recipe } from '../types';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect } from "react"
+import { RefreshCw, ChefHat, Clock, ArrowLeft, X } from "lucide-react"
+import { doc, setDoc } from "firebase/firestore"
+import { db, appId, geminiApiKey } from "../lib/firebase"
+import { Recipe } from "../types"
+import { useNavigate } from "react-router-dom"
 
 interface GeneratorProps {
-  recipes: Recipe[];
-  userId: string;
+  recipes: Recipe[]
+  userId: string
 }
 
 export default function Generator({ recipes, userId }: GeneratorProps) {
-  const [bulkIngredient, setBulkIngredient] = useState('');
-  const [cravings, setCravings] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const navigate = useNavigate();
-  
+  const [bulkIngredient, setBulkIngredient] = useState("")
+  const [cravings, setCravings] = useState("")
+  const [isGenerating, setIsGenerating] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const navigate = useNavigate()
+
   // Try to load persisted options from localStorage
   const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(() => {
     try {
-      const saved = localStorage.getItem('mealOps_generatedOptions');
-      if (saved) return JSON.parse(saved);
+      const saved = localStorage.getItem("mealOps_generatedOptions")
+      if (saved) return JSON.parse(saved)
     } catch (e) {
-      console.warn("Failed to parse cached options", e);
+      console.warn("Failed to parse cached options", e)
     }
-    return null;
-  });
+    return null
+  })
 
-  const [previewRecipe, setPreviewRecipe] = useState<Partial<Recipe> | null>(null);
+  const [previewRecipe, setPreviewRecipe] = useState<Partial<Recipe> | null>(null)
 
   // Sync to localStorage whenever generatedOptions changes
   useEffect(() => {
     if (generatedOptions && generatedOptions.length > 0) {
-      localStorage.setItem('mealOps_generatedOptions', JSON.stringify(generatedOptions));
+      localStorage.setItem("mealOps_generatedOptions", JSON.stringify(generatedOptions))
     } else {
-      localStorage.removeItem('mealOps_generatedOptions');
+      localStorage.removeItem("mealOps_generatedOptions")
     }
-  }, [generatedOptions]);
+  }, [generatedOptions])
 
   const handleDiscard = () => {
-    setGeneratedOptions(null);
-  };
+    setGeneratedOptions(null)
+  }
 
   const generateOptions = async () => {
-    setIsGenerating(true);
-    setError(null);
-    setGeneratedOptions(null);
+    setIsGenerating(true)
+    setError(null)
+    setGeneratedOptions(null)
 
     // Filter past recipes to provide context
-    const highRated = recipes.filter(r => (r.rating || 0) >= 8).map(r => r.name).slice(0, 3);
-    const lowRated = recipes.filter(r => (r.rating || 10) < 5).map(r => `${r.name} (Feedback: ${r.feedback || 'None'})`).slice(0, 3);
-    const recentMeals = recipes.slice(0, 5).map(r => r.name);
+    const highRated = recipes
+      .filter((r) => (r.rating || 0) >= 8)
+      .map((r) => r.name)
+      .slice(0, 3)
+    const lowRated = recipes
+      .filter((r) => (r.rating || 10) < 5)
+      .map((r) => `${r.name} (Feedback: ${r.feedback || "None"})`)
+      .slice(0, 3)
+    const recentMeals = recipes.slice(0, 5).map((r) => r.name)
 
     const systemPrompt = `You are a highly creative Culinary Engine. 
 Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly 6 portions.
@@ -65,13 +71,13 @@ CRITICAL RULES & VARIANCE:
 6. The core focus is on easy-to-make meals that are healthy, filling, and exceptionally tasty.
 
 USER CONTEXT & HISTORY:
-- Highly rated past meals: ${highRated.join(', ') || 'None yet. Be highly creative.'}
-- Low rated past meals (AVOID THESE): ${lowRated.join(' | ') || 'None yet.'}
-- Specific User Request / Cravings: ${cravings || 'Surprise me with completely unique, healthy, and tasty recipes.'}
-- Bulk Ingredient to utilize: ${bulkIngredient || 'None.'}
+- Highly rated past meals: ${highRated.join(", ") || "None yet. Be highly creative."}
+- Low rated past meals (AVOID THESE): ${lowRated.join(" | ") || "None yet."}
+- Specific User Request / Cravings: ${cravings || "Surprise me with completely unique, healthy, and tasty recipes."}
+- Bulk Ingredient to utilize: ${bulkIngredient || "None."}
 
 DO NOT GENERATE ANYTHING SIMILAR TO THESE RECENT MEALS:
-${recentMeals.join('\n') || 'None.'}
+${recentMeals.join("\n") || "None."}
 
 OUTPUT FORMAT:
 Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. Do not add trailing text or trailing commas. Match this schema exactly:
@@ -92,82 +98,93 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       ]
     }
   ]
-}`;
+}`
 
     try {
-      let resultText = '';
-      let retries = 5;
-      let delay = 1000;
+      let resultText = ""
+      let retries = 5
+      let delay = 1000
 
       while (retries > 0) {
         try {
-          const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              contents: [{ parts: [{ text: 'Generate 3 distinct meal configuration options as JSON.' }] }],
-              systemInstruction: { parts: [{ text: systemPrompt }] },
-              generationConfig: { responseMimeType: "application/json" }
-            })
-          });
+          const response = await fetch(
+            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
+            {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                contents: [
+                  { parts: [{ text: "Generate 3 distinct meal configuration options as JSON." }] },
+                ],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                generationConfig: { responseMimeType: "application/json" },
+              }),
+            },
+          )
 
-          if (!response.ok) throw new Error(`API Error: ${response.status}`);
-          const data = await response.json();
-          resultText = data.candidates?.[0]?.content?.parts?.[0]?.text;
-          break; // Success
+          if (!response.ok) throw new Error(`API Error: ${response.status}`)
+          const data = await response.json()
+          resultText = data.candidates?.[0]?.content?.parts?.[0]?.text
+          break // Success
         } catch (err) {
-          retries--;
-          if (retries === 0) throw err;
-          await new Promise(res => setTimeout(res, delay));
-          delay *= 2;
+          retries--
+          if (retries === 0) throw err
+          await new Promise((res) => setTimeout(res, delay))
+          delay *= 2
         }
       }
 
-      if (!resultText) throw new Error("Failed to extract JSON from AI response.");
-      
+      if (!resultText) throw new Error("Failed to extract JSON from AI response.")
+
       // Clean up markdown blockquotes and any trailing garbage characters
-      let cleanText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-      let startIndex = cleanText.indexOf('{');
-      if (startIndex === -1) throw new Error("Could not find JSON object bounds in response.");
-      
-      let jsonStr = cleanText.substring(startIndex);
-      
-      let parsedData;
-      let isValid = false;
-      
+      let cleanText = resultText
+        .replace(/```json/g, "")
+        .replace(/```/g, "")
+        .trim()
+      let startIndex = cleanText.indexOf("{")
+      if (startIndex === -1) throw new Error("Could not find JSON object bounds in response.")
+
+      let jsonStr = cleanText.substring(startIndex)
+
+      let parsedData
+      let isValid = false
+
       while (jsonStr.length > 20) {
         try {
-          parsedData = JSON.parse(jsonStr);
-          isValid = true;
-          break;
+          parsedData = JSON.parse(jsonStr)
+          isValid = true
+          break
         } catch (err) {
-          const lastBrace = jsonStr.lastIndexOf('}');
-          if (lastBrace === -1) break;
-          jsonStr = jsonStr.substring(0, lastBrace).trim();
+          const lastBrace = jsonStr.lastIndexOf("}")
+          if (lastBrace === -1) break
+          jsonStr = jsonStr.substring(0, lastBrace).trim()
         }
       }
-      
-      if (!isValid || !parsedData) {
-        throw new Error("AI returned malformed JSON that could not be repaired.");
-      }
-      
-      if (!parsedData.options || !Array.isArray(parsedData.options) || parsedData.options.length === 0) {
-        throw new Error("AI returned invalid JSON schema.");
-      }
-      
-      setGeneratedOptions(parsedData.options);
 
+      if (!isValid || !parsedData) {
+        throw new Error("AI returned malformed JSON that could not be repaired.")
+      }
+
+      if (
+        !parsedData.options ||
+        !Array.isArray(parsedData.options) ||
+        parsedData.options.length === 0
+      ) {
+        throw new Error("AI returned invalid JSON schema.")
+      }
+
+      setGeneratedOptions(parsedData.options)
     } catch (err) {
-      console.error(err);
-      setError("Engine failed to generate recipes. Please try again.");
+      console.error(err)
+      setError("Engine failed to generate recipes. Please try again.")
     } finally {
-      setIsGenerating(false);
+      setIsGenerating(false)
     }
-  };
+  }
 
   const selectRecipe = async (option: Partial<Recipe>) => {
     try {
-      const docId = `recipe-${Date.now()}`;
+      const docId = `recipe-${Date.now()}`
       const newRecipe: Recipe = {
         name: option.name || "Untitled Meal",
         description: option.description || "No description provided.",
@@ -178,40 +195,43 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         id: docId,
         createdAt: Date.now(),
         rating: 0,
-        feedback: ''
-      };
+        feedback: "",
+      }
 
-      await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'recipes', docId), newRecipe);
-      
+      await setDoc(doc(db, "artifacts", appId, "users", userId, "recipes", docId), newRecipe)
+
       // Clear persistence and cache
-      localStorage.removeItem('mealOps_generatedOptions');
-      setGeneratedOptions(null);
-      setPreviewRecipe(null);
-      
-      navigate(`/recipe/${docId}`);
+      localStorage.removeItem("mealOps_generatedOptions")
+      setGeneratedOptions(null)
+      setPreviewRecipe(null)
+
+      navigate(`/recipe/${docId}`)
     } catch (err) {
-      console.error("Error saving selected recipe:", err);
-      setError("Failed to save selected recipe.");
+      console.error("Error saving selected recipe:", err)
+      setError("Failed to save selected recipe.")
     }
-  };
+  }
 
   // If we have options, show the Selection UI
   if (generatedOptions && generatedOptions.length > 0) {
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
-        
         {/* Modal Overlay */}
         {previewRecipe && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
             <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
-              
               {/* Modal Header */}
               <div className="p-6 border-b border-slate-800 flex justify-between items-start shrink-0">
                 <div>
-                  <h2 className="text-2xl font-bold text-slate-100 mb-2 leading-tight pr-8">{previewRecipe.name}</h2>
+                  <h2 className="text-2xl font-bold text-slate-100 mb-2 leading-tight pr-8">
+                    {previewRecipe.name}
+                  </h2>
                   <div className="flex flex-wrap gap-2 mb-3">
-                    {previewRecipe.tags?.map(tag => (
-                      <span key={tag} className="text-xs font-medium bg-slate-950 text-teal-400 px-2.5 py-1 rounded-full border border-teal-500/20">
+                    {previewRecipe.tags?.map((tag) => (
+                      <span
+                        key={tag}
+                        className="text-xs font-medium bg-slate-950 text-teal-400 px-2.5 py-1 rounded-full border border-teal-500/20"
+                      >
                         {tag}
                       </span>
                     ))}
@@ -223,7 +243,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                     {previewRecipe.description}
                   </p>
                 </div>
-                <button 
+                <button
                   onClick={() => setPreviewRecipe(null)}
                   className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg transition-colors border border-transparent hover:border-slate-700 absolute top-6 right-6"
                 >
@@ -234,13 +254,17 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
               {/* Modal Body */}
               <div className="p-6 overflow-y-auto flex-1 bg-slate-950/30 grid grid-cols-1 md:grid-cols-2 gap-8">
                 <div>
-                  <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">Shopping List</h3>
+                  <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">
+                    Shopping List
+                  </h3>
                   <ul className="space-y-3">
                     {previewRecipe.shoppingList?.map((item, idx) => (
                       <li key={idx} className="flex items-start gap-2 text-sm">
                         <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
                         <div>
-                          <span className="font-semibold text-teal-400 block sm:inline sm:mr-2">{item.amount}</span>
+                          <span className="font-semibold text-teal-400 block sm:inline sm:mr-2">
+                            {item.amount}
+                          </span>
                           <span className="text-slate-300">{item.item}</span>
                         </div>
                       </li>
@@ -249,10 +273,12 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                 </div>
 
                 <div>
-                  <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">Procedure</h3>
+                  <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">
+                    Procedure
+                  </h3>
                   <div className="space-y-4">
                     {previewRecipe.procedure?.map((step, idx) => {
-                      const parts = step.split(': ');
+                      const parts = step.split(": ")
                       return (
                         <div key={idx} className="flex gap-3 text-sm">
                           <div className="flex-shrink-0 font-bold text-teal-500 w-5">
@@ -260,13 +286,16 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                           </div>
                           <p className="text-slate-300 leading-relaxed">
                             {parts.length > 1 ? (
-                              <><span className="font-semibold text-teal-300">{parts[0]}: </span>{parts.slice(1).join(': ')}</>
+                              <>
+                                <span className="font-semibold text-teal-300">{parts[0]}: </span>
+                                {parts.slice(1).join(": ")}
+                              </>
                             ) : (
                               step
                             )}
                           </p>
                         </div>
-                      );
+                      )
                     })}
                   </div>
                 </div>
@@ -274,20 +303,19 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 
               {/* Modal Footer */}
               <div className="p-6 border-t border-slate-800 bg-slate-900 shrink-0 flex gap-3 justify-end">
-                <button 
+                <button
                   onClick={() => setPreviewRecipe(null)}
                   className="px-5 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors"
                 >
                   Close
                 </button>
-                <button 
+                <button
                   onClick={() => selectRecipe(previewRecipe)}
                   className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-6 py-2.5 rounded-lg transition-all shadow-lg shadow-teal-500/20"
                 >
                   Select This Meal
                 </button>
               </div>
-
             </div>
           </div>
         )}
@@ -296,41 +324,51 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <ChefHat className="text-teal-400" /> Choose Your Matrix
           </h2>
-          <button 
+          <button
             onClick={handleDiscard}
             className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft size={16} /> Discard & Start Over
           </button>
         </div>
-        
-        <p className="text-slate-400 text-sm">Select one of these distinct configurations for your current workweek. Click a card to see the full recipe.</p>
+
+        <p className="text-slate-400 text-sm">
+          Select one of these distinct configurations for your current workweek. Click a card to see
+          the full recipe.
+        </p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {generatedOptions.map((opt, idx) => (
-            <div 
-              key={idx} 
+            <div
+              key={idx}
               onClick={() => setPreviewRecipe(opt)}
               className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-teal-500/50 cursor-pointer transition-all group hover:bg-slate-800/50"
             >
               <div>
-                <h3 className="font-bold text-slate-100 mb-2 text-lg leading-tight group-hover:text-teal-300 transition-colors">{opt.name}</h3>
-                <p className="text-sm text-slate-400 mb-3 line-clamp-3 leading-relaxed">{opt.description}</p>
+                <h3 className="font-bold text-slate-100 mb-2 text-lg leading-tight group-hover:text-teal-300 transition-colors">
+                  {opt.name}
+                </h3>
+                <p className="text-sm text-slate-400 mb-3 line-clamp-3 leading-relaxed">
+                  {opt.description}
+                </p>
                 <div className="flex items-center gap-1.5 text-sm text-slate-300 mb-4 font-medium">
                   <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
                 </div>
                 <div className="flex flex-wrap gap-2 mb-6">
-                  {opt.tags?.slice(0,4).map(tag => (
-                    <span key={tag} className="text-xs bg-slate-950 text-slate-400 px-2 py-1 rounded-md border border-slate-800">
+                  {opt.tags?.slice(0, 4).map((tag) => (
+                    <span
+                      key={tag}
+                      className="text-xs bg-slate-950 text-slate-400 px-2 py-1 rounded-md border border-slate-800"
+                    >
                       {tag}
                     </span>
                   ))}
                 </div>
               </div>
-              <button 
+              <button
                 onClick={(e) => {
-                  e.stopPropagation();
-                  selectRecipe(opt);
+                  e.stopPropagation()
+                  selectRecipe(opt)
                 }}
                 className="w-full bg-slate-800 group-hover:bg-teal-500 group-hover:text-slate-950 text-teal-400 font-semibold py-2.5 rounded-lg transition-all border border-slate-700 group-hover:border-teal-400 mt-auto"
               >
@@ -340,7 +378,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
           ))}
         </div>
       </div>
-    );
+    )
   }
 
   // Input UI
@@ -352,10 +390,12 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 
       <div className="space-y-5">
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-1.5">Bulk Ingredient Override (Optional)</label>
-          <input 
-            type="text" 
-            placeholder="e.g., 5 lbs of carrots, leftover quinoa" 
+          <label className="block text-sm font-medium text-slate-400 mb-1.5">
+            Bulk Ingredient Override (Optional)
+          </label>
+          <input
+            type="text"
+            placeholder="e.g., 5 lbs of carrots, leftover quinoa"
             value={bulkIngredient}
             onChange={(e) => setBulkIngredient(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
@@ -363,39 +403,49 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-slate-400 mb-1.5">Specific Cravings / Mechanics</label>
-          <input 
-            type="text" 
-            placeholder="e.g., Sheet pan only, heavy spice, fish" 
+          <label className="block text-sm font-medium text-slate-400 mb-1.5">
+            Specific Cravings / Mechanics
+          </label>
+          <input
+            type="text"
+            placeholder="e.g., Sheet pan only, heavy spice, fish"
             value={cravings}
             onChange={(e) => setCravings(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
           />
         </div>
 
-        {error && <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg border border-red-400/20">{error}</div>}
+        {error && (
+          <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg border border-red-400/20">
+            {error}
+          </div>
+        )}
 
         <div className="flex gap-3 pt-4">
-          <button 
-            onClick={() => navigate('/')}
+          <button
+            onClick={() => navigate("/")}
             disabled={isGenerating}
             className="px-4 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={generateOptions}
             disabled={isGenerating}
             className="flex-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
           >
             {isGenerating ? (
-              <><RefreshCw size={18} className="animate-spin" /> Processing Matrix...</>
+              <>
+                <RefreshCw size={18} className="animate-spin" /> Processing Matrix...
+              </>
             ) : (
-              <><ChefHat size={18} /> Generate 3 Options</>
+              <>
+                <ChefHat size={18} /> Generate 3 Options
+              </>
             )}
           </button>
         </div>
       </div>
     </div>
-  );
+  )
 }
