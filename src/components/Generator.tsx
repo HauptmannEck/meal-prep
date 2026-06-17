@@ -16,7 +16,7 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
-  
+
   // Array of 3 AI-generated options
   const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(null);
 
@@ -34,7 +34,7 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
 Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly 6 portions.
 
 CRITICAL RULES & VARIANCE:
-1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider vegetarian dishes as a primary option.
+1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider a vegetarian dish as one of the three primary options.
 2. All 3 options MUST draw from entirely different global cuisines.
 3. All 3 options MUST use different preparation styles.
 4. Do NOT rely on cliches like "gochujang", "harissa", or "za'atar". Branch out into diverse and unique flavor profiles.
@@ -101,18 +101,37 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       }
 
       if (!resultText) throw new Error("Failed to extract JSON from AI response.");
-      
+
       // Clean up markdown blockquotes and any trailing garbage characters
       let cleanText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
-      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
-      if (!jsonMatch) throw new Error("Could not find JSON object bounds in response.");
+      let startIndex = cleanText.indexOf('{');
+      if (startIndex === -1) throw new Error("Could not find JSON object bounds in response.");
       
-      const parsedData = JSON.parse(jsonMatch[0]);
+      let jsonStr = cleanText.substring(startIndex);
+      
+      let parsedData;
+      let isValid = false;
+      
+      while (jsonStr.length > 20) {
+        try {
+          parsedData = JSON.parse(jsonStr);
+          isValid = true;
+          break;
+        } catch (err) {
+          const lastBrace = jsonStr.lastIndexOf('}');
+          if (lastBrace === -1) break;
+          jsonStr = jsonStr.substring(0, lastBrace).trim();
+        }
+      }
+      
+      if (!isValid || !parsedData) {
+        throw new Error("AI returned malformed JSON that could not be repaired.");
+      }
       
       if (!parsedData.options || !Array.isArray(parsedData.options) || parsedData.options.length === 0) {
         throw new Error("AI returned invalid JSON schema.");
       }
-      
+
       setGeneratedOptions(parsedData.options);
 
     } catch (err) {
@@ -155,14 +174,14 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <ChefHat className="text-teal-400" /> Choose Your Matrix
           </h2>
-          <button 
+          <button
             onClick={() => setGeneratedOptions(null)}
             className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft size={16} /> Discard & Start Over
           </button>
         </div>
-        
+
         <p className="text-slate-400 text-sm">Select one of these distinct configurations for your current workweek.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -175,14 +194,14 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                   <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
                 </div>
                 <div className="flex flex-wrap gap-2 mb-6">
-                  {opt.tags?.slice(0,4).map(tag => (
+                  {opt.tags?.slice(0, 4).map(tag => (
                     <span key={tag} className="text-xs bg-slate-950 text-slate-400 px-2 py-1 rounded-md border border-slate-800">
                       {tag}
                     </span>
                   ))}
                 </div>
               </div>
-              <button 
+              <button
                 onClick={() => selectRecipe(opt)}
                 className="w-full bg-slate-800 hover:bg-teal-500 hover:text-slate-950 text-teal-400 font-semibold py-2.5 rounded-lg transition-all border border-slate-700 hover:border-teal-400"
               >
@@ -205,9 +224,9 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       <div className="space-y-5">
         <div>
           <label className="block text-sm font-medium text-slate-400 mb-1.5">Bulk Ingredient Override (Optional)</label>
-          <input 
-            type="text" 
-            placeholder="e.g., 5 lbs of carrots, leftover quinoa" 
+          <input
+            type="text"
+            placeholder="e.g., 5 lbs of carrots, leftover quinoa"
             value={bulkIngredient}
             onChange={(e) => setBulkIngredient(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
@@ -216,9 +235,9 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 
         <div>
           <label className="block text-sm font-medium text-slate-400 mb-1.5">Specific Cravings / Mechanics</label>
-          <input 
-            type="text" 
-            placeholder="e.g., Sheet pan only, heavy spice, fish" 
+          <input
+            type="text"
+            placeholder="e.g., Sheet pan only, heavy spice, fish"
             value={cravings}
             onChange={(e) => setCravings(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
@@ -228,14 +247,14 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         {error && <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg border border-red-400/20">{error}</div>}
 
         <div className="flex gap-3 pt-4">
-          <button 
+          <button
             onClick={() => navigate('/')}
             disabled={isGenerating}
             className="px-4 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
-          <button 
+          <button
             onClick={generateOptions}
             disabled={isGenerating}
             className="flex-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
