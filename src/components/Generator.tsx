@@ -25,6 +25,15 @@ export default function Generator({ recipes, userId, preferences, apiStatus }: G
   const [isCopied, setIsCopied] = useState(false)
   const navigate = useNavigate()
 
+  const [now, setNow] = useState(Date.now())
+  const isLockedOut = apiStatus?.status !== "active" && (apiStatus?.expiresAt || 0) > now
+
+  useEffect(() => {
+    if (!isLockedOut) return
+    const interval = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(interval)
+  }, [isLockedOut])
+
   // Try to load persisted options from localStorage
   const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(() => {
     try {
@@ -452,8 +461,18 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
     )
   }
 
-  // Evaluate Global Lockout
-  const isLockedOut = apiStatus?.status !== "active" && (apiStatus?.expiresAt || 0) > Date.now()
+  const formatTimeRemaining = (expiresAt: number) => {
+    const diff = expiresAt - now
+    if (diff <= 0) return "0s"
+
+    const h = Math.floor(diff / (1000 * 60 * 60))
+    const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
+    const s = Math.floor((diff % (1000 * 60)) / 1000)
+
+    if (h > 0) return `${h}h ${m}m ${s}s`
+    if (m > 0) return `${m}m ${s}s`
+    return `${s}s`
+  }
 
   // Input UI
   return (
@@ -465,7 +484,12 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 
         {isLockedOut && (
           <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200">
-            <h3 className="font-bold flex items-center gap-2 mb-1">Global API Limit Reached</h3>
+            <h3 className="font-bold flex items-center justify-between mb-1">
+              <span className="flex items-center gap-2">Global API Limit Reached</span>
+              <span className="text-amber-500 font-mono text-xs bg-amber-500/10 px-2 py-0.5 rounded border border-amber-500/20">
+                Unlocks in: {formatTimeRemaining(apiStatus!.expiresAt!)}
+              </span>
+            </h3>
             <p className="text-sm text-amber-300/80 mb-2">
               {apiStatus?.limitType === "daily"
                 ? "The global daily quota for the free-tier Gemini API has been exhausted. It will reset at midnight PT."
