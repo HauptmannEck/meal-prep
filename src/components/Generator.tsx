@@ -33,16 +33,18 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
     const systemPrompt = `You are a highly creative Culinary Engine. 
 Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly 6 portions.
 
-CRITICAL VARIANCE RULES:
-1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef).
+CRITICAL RULES & VARIANCE:
+1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider vegetarian dishes as a primary option.
 2. All 3 options MUST draw from entirely different global cuisines.
 3. All 3 options MUST use different preparation styles.
 4. Do NOT rely on cliches like "gochujang", "harissa", or "za'atar". Branch out into diverse and unique flavor profiles.
+5. All ingredients MUST be common enough that a standard full-size US grocery store will consistently stock them. No exotic specialty items.
+6. The core focus is on easy-to-make meals that are healthy, filling, and exceptionally tasty.
 
 USER CONTEXT & HISTORY:
 - Highly rated past meals: ${highRated.join(', ') || 'None yet. Be highly creative.'}
 - Low rated past meals (AVOID THESE): ${lowRated.join(' | ') || 'None yet.'}
-- Specific User Request / Cravings: ${cravings || 'Surprise me with completely unique, high-protein recipes.'}
+- Specific User Request / Cravings: ${cravings || 'Surprise me with completely unique, healthy, and tasty recipes.'}
 - Bulk Ingredient to utilize: ${bulkIngredient || 'None.'}
 
 DO NOT GENERATE ANYTHING SIMILAR TO THESE RECENT MEALS:
