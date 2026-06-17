@@ -30,22 +30,26 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
     const lowRated = recipes.filter(r => (r.rating || 10) < 5).map(r => `${r.name} (Feedback: ${r.feedback || 'None'})`).slice(0, 3);
     const recentMeals = recipes.slice(0, 5).map(r => r.name);
 
-    const systemPrompt = `You are a highly technical Culinary Optimization Engine. 
-Generate exactly 3 HIGHLY DISTINCT high-flavor, low-prep (under 20 mins, handful of ingredients) workweek meal recipes scaled for exactly 6 portions (for a single adult male).
-The 3 options MUST vary significantly in primary protein source, flavor profile, and preparation style to provide excellent variance.
+    const systemPrompt = `You are a highly creative Culinary Engine. 
+Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly 6 portions.
 
-USER CONTEXT:
-- Loves bold flavors (gochujang, za'atar, harissa).
-- Prefers high-efficiency, one-pan/skillet/sheet-pan mechanics.
-- Highly rated past mechanics: ${highRated.join(', ') || 'None yet.'}
-- Avoid or fix issues from past low ratings: ${lowRated.join(' | ') || 'None yet.'}
-- Specific User Request: ${cravings || 'Standard high-protein rotation.'}
+CRITICAL VARIANCE RULES:
+1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef).
+2. All 3 options MUST draw from entirely different global cuisines.
+3. All 3 options MUST use different preparation styles.
+4. Do NOT rely on cliches like "gochujang", "harissa", or "za'atar". Branch out into diverse and unique flavor profiles.
+
+USER CONTEXT & HISTORY:
+- Highly rated past meals: ${highRated.join(', ') || 'None yet. Be highly creative.'}
+- Low rated past meals (AVOID THESE): ${lowRated.join(' | ') || 'None yet.'}
+- Specific User Request / Cravings: ${cravings || 'Surprise me with completely unique, high-protein recipes.'}
 - Bulk Ingredient to utilize: ${bulkIngredient || 'None.'}
 
-CRITICAL: Do NOT generate variations of these recent meals: ${recentMeals.join(', ') || 'None.'}
+DO NOT GENERATE ANYTHING SIMILAR TO THESE RECENT MEALS:
+${recentMeals.join('\n') || 'None.'}
 
 OUTPUT FORMAT:
-Respond ONLY with a valid JSON object matching this schema perfectly:
+Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. Do not add trailing text or trailing commas. Match this schema exactly:
 {
   "options": [
     {
@@ -96,7 +100,13 @@ Respond ONLY with a valid JSON object matching this schema perfectly:
 
       if (!resultText) throw new Error("Failed to extract JSON from AI response.");
       
-      const parsedData = JSON.parse(resultText);
+      // Clean up markdown blockquotes and any trailing garbage characters
+      let cleanText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
+      const jsonMatch = cleanText.match(/\{[\s\S]*\}/);
+      if (!jsonMatch) throw new Error("Could not find JSON object bounds in response.");
+      
+      const parsedData = JSON.parse(jsonMatch[0]);
+      
       if (!parsedData.options || !Array.isArray(parsedData.options) || parsedData.options.length === 0) {
         throw new Error("AI returned invalid JSON schema.");
       }
