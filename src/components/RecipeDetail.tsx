@@ -1,18 +1,11 @@
 import { useState } from "react"
-import {
-  ChefHat,
-  ShoppingCart,
-  List,
-  Star,
-  Clock,
-  Trash2,
-  Save,
-  RefreshCw,
-  Flame,
-} from "lucide-react"
-import { doc, setDoc, deleteDoc } from "firebase/firestore"
+import { ChefHat, ShoppingCart, List, Star, Clock, Trash2, Flame } from "lucide-react"
+import { doc, deleteDoc } from "firebase/firestore"
 import { db, appId } from "../lib/firebase"
 import { Recipe } from "../types"
+import ShoppingListTab from "./recipe/ShoppingListTab"
+import ProcedureTab from "./recipe/ProcedureTab"
+import ReviewTab from "./recipe/ReviewTab"
 import { useParams, useNavigate } from "react-router-dom"
 
 interface RecipeDetailProps {
@@ -20,6 +13,11 @@ interface RecipeDetailProps {
   userId: string
 }
 
+/**
+ * Top-level Orchestrator for Recipe details.
+ * Manages the active tab and cooking mode, but delegates the actual
+ * data mutation and local state to the specific tabs.
+ */
 export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -28,9 +26,6 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
 
   const [activeTab, setActiveTab] = useState<"shop" | "cook" | "review">("shop")
   const [cookingMode, setCookingMode] = useState<"batch" | "single">("batch")
-  const [rating, setRating] = useState<number | string>(recipe?.rating || 0)
-  const [feedback, setFeedback] = useState(recipe?.feedback || "")
-  const [isSavingReview, setIsSavingReview] = useState(false)
 
   if (!recipe) {
     return (
@@ -46,36 +41,6 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
         </button>
       </div>
     )
-  }
-
-  const saveReview = async () => {
-    setIsSavingReview(true)
-    try {
-      await setDoc(doc(db, "artifacts", appId, "users", userId, "recipes", recipe.id), {
-        ...recipe,
-        rating: Number(rating),
-        feedback: feedback,
-      })
-      // Allow visual feedback to persist briefly
-      setTimeout(() => setIsSavingReview(false), 500)
-    } catch (err) {
-      console.error(err)
-      setIsSavingReview(false)
-    }
-  }
-
-  const toggleShoppingItem = async (index: number) => {
-    const updatedList = [...(recipe.shoppingList || [])]
-    updatedList[index] = { ...updatedList[index], checked: !updatedList[index].checked }
-
-    try {
-      await setDoc(doc(db, "artifacts", appId, "users", userId, "recipes", recipe.id), {
-        ...recipe,
-        shoppingList: updatedList,
-      })
-    } catch (err) {
-      console.error("Error updating shopping list", err)
-    }
   }
 
   const deleteRecipe = async () => {
@@ -177,126 +142,26 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
             </div>
           )}
 
-          {/* Shopping List Tab */}
           {activeTab === "shop" && (
-            <div className="space-y-1">
-              <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">
-                Ingredients List
-              </h3>
-              <ul className="space-y-3">
-                {recipe.shoppingList?.map((item, idx) => (
-                  <li
-                    key={idx}
-                    onClick={() => toggleShoppingItem(idx)}
-                    className="flex items-start gap-3 p-3 rounded-lg hover:bg-slate-800/50 border border-transparent hover:border-slate-800 transition-colors group cursor-pointer"
-                  >
-                    <div
-                      className={`mt-0.5 w-5 h-5 rounded border-2 flex items-center justify-center flex-shrink-0 transition-colors ${item.checked ? "bg-teal-500 border-teal-500" : "border-slate-600 group-hover:border-teal-500"}`}
-                    >
-                      {item.checked && (
-                        <svg
-                          className="w-3.5 h-3.5 text-slate-950"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={3}
-                        >
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-                    <div
-                      className={`transition-all ${item.checked ? "opacity-40 line-through" : ""}`}
-                    >
-                      <span className="font-semibold text-teal-400 block sm:inline sm:mr-2">
-                        {cookingMode === "single"
-                          ? item.singleAmount || item.amount
-                          : item.batchAmount || item.amount}
-                      </span>
-                      <span className="text-slate-200">{item.item}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
+            <ShoppingListTab
+              recipe={recipe}
+              userId={userId}
+              cookingMode={cookingMode}
+            />
           )}
 
-          {/* Procedure Tab */}
           {activeTab === "cook" && (
-            <div className="space-y-6">
-              {(cookingMode === "single"
-                ? recipe.singleProcedure || recipe.procedure
-                : recipe.batchProcedure || recipe.procedure
-              )?.map((step, idx) => {
-                const parts = step.split(": ")
-                return (
-                  <div
-                    key={idx}
-                    className="flex gap-4 p-4 rounded-xl bg-slate-900 border border-slate-800"
-                  >
-                    <div className="flex-shrink-0 w-8 h-8 rounded-full bg-teal-500/10 text-teal-400 flex items-center justify-center font-bold border border-teal-500/20">
-                      {idx + 1}
-                    </div>
-                    <p className="text-slate-300 leading-relaxed pt-1">
-                      {parts.length > 1 ? (
-                        <>
-                          <span className="font-semibold text-teal-300">{parts[0]}: </span>
-                          {parts.slice(1).join(": ")}
-                        </>
-                      ) : (
-                        step
-                      )}
-                    </p>
-                  </div>
-                )
-              })}
-            </div>
+            <ProcedureTab
+              recipe={recipe}
+              cookingMode={cookingMode}
+            />
           )}
 
-          {/* Review Tab */}
           {activeTab === "review" && (
-            <div className="max-w-md space-y-6">
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-3">
-                  Overall Score (1-10)
-                </label>
-                <div className="flex gap-2">
-                  {[1, 2, 3, 4, 5, 6, 7, 8, 9, 10].map((num) => (
-                    <button
-                      key={num}
-                      onClick={() => setRating(num)}
-                      className={`w-8 h-8 md:w-10 md:h-10 rounded flex items-center justify-center text-sm font-bold transition-all ${rating === num ? "bg-amber-500 text-slate-950 scale-110 shadow-lg shadow-amber-500/20" : "bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800"}`}
-                    >
-                      {num}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-slate-400 mb-2">
-                  Mechanics Feedback
-                </label>
-                <textarea
-                  value={feedback}
-                  onChange={(e) => setFeedback(e.target.value)}
-                  placeholder="What worked? What should the engine avoid next time?"
-                  className="w-full bg-slate-900 border border-slate-800 rounded-lg p-4 h-32 focus:outline-none focus:border-teal-500/50 focus:ring-1 focus:ring-teal-500/50 text-slate-200 placeholder:text-slate-600 resize-none"
-                />
-              </div>
-
-              <button
-                onClick={saveReview}
-                className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-6 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-all shadow-lg shadow-teal-500/20"
-              >
-                {isSavingReview ? (
-                  <RefreshCw size={18} className="animate-spin" />
-                ) : (
-                  <Save size={18} />
-                )}
-                {isSavingReview ? "Saving..." : "Save Feedback"}
-              </button>
-            </div>
+            <ReviewTab
+              recipe={recipe}
+              userId={userId}
+            />
           )}
         </div>
       </div>
