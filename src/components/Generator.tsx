@@ -15,7 +15,9 @@ interface GeneratorProps {
 export default function Generator({ recipes, userId, preferences, apiStatus }: GeneratorProps) {
   const [bulkIngredient, setBulkIngredient] = useState("")
   const [cravings, setCravings] = useState("")
-  const [targetServings, setTargetServings] = useState<number>(preferences?.targetServings || 6)
+  const [targetServings, setTargetServings] = useState<number | "">(
+    preferences?.targetServings || 6,
+  )
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showManual, setShowManual] = useState(false)
@@ -61,7 +63,7 @@ export default function Generator({ recipes, userId, preferences, apiStatus }: G
     const recentMeals = recipes.slice(0, 5).map((r) => r.name)
 
     return `You are a highly creative Culinary Engine. 
-Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly ${targetServings} portions.
+Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly ${targetServings || 1} portions.
 
 CRITICAL RULES & VARIANCE:
 1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider vegetarian dishes as a primary option.
@@ -94,8 +96,8 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         { "item": "Slaw Mix", "batchAmount": "3 bags", "singleAmount": "0.5 bags" }
       ],
       "batchProcedure": [
-        "Step 1: clear and concise for cooking all ${targetServings} servings at once",
-        "Step 2: clear and concise for cooking all ${targetServings} servings at once"
+        "Step 1: clear and concise for cooking all ${targetServings || 1} servings at once",
+        "Step 2: clear and concise for cooking all ${targetServings || 1} servings at once"
       ],
       "singleProcedure": [
         "Step 1: clear and concise for cooking just 1 serving",
@@ -245,7 +247,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         shoppingList: option.shoppingList || [],
         batchProcedure: option.batchProcedure || [],
         singleProcedure: option.singleProcedure || [],
-        servings: targetServings,
+        servings: typeof targetServings === "number" ? targetServings : 1,
         id: docId,
         createdAt: Date.now(),
         rating: 0,
@@ -472,7 +474,14 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                 type="number"
                 min="1"
                 value={targetServings}
-                onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === "") {
+                    setTargetServings("")
+                  } else {
+                    setTargetServings(parseInt(val) || 1)
+                  }
+                }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
               />
             </div>
