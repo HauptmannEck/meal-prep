@@ -31,6 +31,7 @@ describe("Generator", () => {
 
     expect(screen.getByText("Meal Generator Engine")).toBeInTheDocument()
     expect(screen.getByText(/Bulk Ingredient Override/i)).toBeInTheDocument()
+    expect(screen.getByText(/Target Servings/i)).toBeInTheDocument()
   })
 
   it("can trigger generation and handle success", async () => {
@@ -49,7 +50,8 @@ describe("Generator", () => {
                       prepTime: 15,
                       tags: ["test"],
                       shoppingList: [],
-                      procedure: [],
+                      batchProcedure: [],
+                      singleProcedure: [],
                     },
                   ],
                 }),

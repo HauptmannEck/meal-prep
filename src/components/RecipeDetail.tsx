@@ -17,6 +17,7 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
   const recipe = recipes.find((r) => r.id === id)
 
   const [activeTab, setActiveTab] = useState<"shop" | "cook" | "review">("shop")
+  const [cookingMode, setCookingMode] = useState<"batch" | "single">("batch")
   const [rating, setRating] = useState<number | string>(recipe?.rating || 0)
   const [feedback, setFeedback] = useState(recipe?.feedback || "")
   const [isSavingReview, setIsSavingReview] = useState(false)
@@ -140,11 +141,31 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
 
         {/* Content Area */}
         <div className="p-6 md:p-8 bg-slate-950/30">
+          {/* Mode Toggle (only show if not on review tab) */}
+          {activeTab !== "review" && (
+            <div className="mb-6 flex justify-center">
+              <div className="bg-slate-900 p-1 rounded-lg border border-slate-800 inline-flex">
+                <button
+                  onClick={() => setCookingMode("batch")}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${cookingMode === "batch" ? "bg-teal-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
+                >
+                  Batch Prep ({recipe.servings || 6} Servings)
+                </button>
+                <button
+                  onClick={() => setCookingMode("single")}
+                  className={`px-4 py-2 text-sm font-medium rounded-md transition-all ${cookingMode === "single" ? "bg-teal-500 text-slate-950 shadow-md" : "text-slate-400 hover:text-slate-200"}`}
+                >
+                  Single Serving
+                </button>
+              </div>
+            </div>
+          )}
+
           {/* Shopping List Tab */}
           {activeTab === "shop" && (
             <div className="space-y-1">
               <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">
-                Scaled for 6 Meals
+                Ingredients List
               </h3>
               <ul className="space-y-3">
                 {recipe.shoppingList?.map((item, idx) => (
@@ -172,7 +193,9 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
                       className={`transition-all ${item.checked ? "opacity-40 line-through" : ""}`}
                     >
                       <span className="font-semibold text-teal-400 block sm:inline sm:mr-2">
-                        {item.amount}
+                        {cookingMode === "single"
+                          ? item.singleAmount || item.amount
+                          : item.batchAmount || item.amount}
                       </span>
                       <span className="text-slate-200">{item.item}</span>
                     </div>
@@ -185,7 +208,10 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
           {/* Procedure Tab */}
           {activeTab === "cook" && (
             <div className="space-y-6">
-              {recipe.procedure?.map((step, idx) => {
+              {(cookingMode === "single"
+                ? recipe.singleProcedure || recipe.procedure
+                : recipe.batchProcedure || recipe.procedure
+              )?.map((step, idx) => {
                 const parts = step.split(": ")
                 return (
                   <div

@@ -82,6 +82,15 @@ export default function Header({ user }: HeaderProps) {
                   <p className="text-xs text-slate-500 truncate">{user.email}</p>
                 </div>
                 <button
+                  onClick={() => {
+                    setDropdownOpen(false)
+                    navigate("/preferences")
+                  }}
+                  className="w-full text-left px-4 py-3 text-sm text-slate-300 hover:bg-slate-800 flex items-center gap-2 transition-colors font-medium border-b border-slate-800"
+                >
+                  <ChefHat size={16} /> Preferences
+                </button>
+                <button
                   onClick={handleSignOut}
                   className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-slate-800 flex items-center gap-2 transition-colors font-medium"
                 >

@@ -2,17 +2,19 @@ import { useState, useEffect } from "react"
 import { RefreshCw, ChefHat, Clock, ArrowLeft, X } from "lucide-react"
 import { doc, setDoc } from "firebase/firestore"
 import { db, appId, geminiApiKey } from "../lib/firebase"
-import { Recipe } from "../types"
+import { Recipe, UserPreferences } from "../types"
 import { useNavigate } from "react-router-dom"
 
 interface GeneratorProps {
   recipes: Recipe[]
   userId: string
+  preferences?: UserPreferences
 }
 
-export default function Generator({ recipes, userId }: GeneratorProps) {
+export default function Generator({ recipes, userId, preferences }: GeneratorProps) {
   const [bulkIngredient, setBulkIngredient] = useState("")
   const [cravings, setCravings] = useState("")
+  const [targetServings, setTargetServings] = useState<number>(preferences?.targetServings || 6)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const navigate = useNavigate()
@@ -60,7 +62,7 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
     const recentMeals = recipes.slice(0, 5).map((r) => r.name)
 
     const systemPrompt = `You are a highly creative Culinary Engine. 
-Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly 6 portions.
+Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly ${targetServings} portions.
 
 CRITICAL RULES & VARIANCE:
 1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider vegetarian dishes as a primary option.
@@ -89,12 +91,16 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       "prepTime": 15,
       "tags": ["high-protein", "one-pan", "spicy"],
       "shoppingList": [
-        { "item": "Ground Turkey (93% lean)", "amount": "3 lbs" },
-        { "item": "Slaw Mix", "amount": "3 bags" }
+        { "item": "Ground Turkey (93% lean)", "batchAmount": "3 lbs", "singleAmount": "0.5 lbs" },
+        { "item": "Slaw Mix", "batchAmount": "3 bags", "singleAmount": "0.5 bags" }
       ],
-      "procedure": [
-        "Step 1: clear and concise",
-        "Step 2: clear and concise"
+      "batchProcedure": [
+        "Step 1: clear and concise for cooking all ${targetServings} servings at once",
+        "Step 2: clear and concise for cooking all ${targetServings} servings at once"
+      ],
+      "singleProcedure": [
+        "Step 1: clear and concise for cooking just 1 serving",
+        "Step 2: clear and concise for cooking just 1 serving"
       ]
     }
   ]
@@ -191,7 +197,9 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         prepTime: option.prepTime || 15,
         tags: option.tags || [],
         shoppingList: option.shoppingList || [],
-        procedure: option.procedure || [],
+        batchProcedure: option.batchProcedure || [],
+        singleProcedure: option.singleProcedure || [],
+        servings: targetServings,
         id: docId,
         createdAt: Date.now(),
         rating: 0,
@@ -263,7 +271,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                         <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
                         <div>
                           <span className="font-semibold text-teal-400 block sm:inline sm:mr-2">
-                            {item.amount}
+                            {item.batchAmount || item.amount}
                           </span>
                           <span className="text-slate-300">{item.item}</span>
                         </div>
@@ -274,10 +282,10 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 
                 <div>
                   <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">
-                    Procedure
+                    Batch Procedure
                   </h3>
                   <div className="space-y-4">
-                    {previewRecipe.procedure?.map((step, idx) => {
+                    {(previewRecipe.batchProcedure || previewRecipe.procedure)?.map((step, idx) => {
                       const parts = step.split(": ")
                       return (
                         <div key={idx} className="flex gap-3 text-sm">
@@ -389,17 +397,31 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       </h2>
 
       <div className="space-y-5">
-        <div>
-          <label className="block text-sm font-medium text-slate-400 mb-1.5">
-            Bulk Ingredient Override (Optional)
-          </label>
-          <input
-            type="text"
-            placeholder="e.g., 5 lbs of carrots, leftover quinoa"
-            value={bulkIngredient}
-            onChange={(e) => setBulkIngredient(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
-          />
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">
+              Target Servings
+            </label>
+            <input
+              type="number"
+              min="1"
+              value={targetServings}
+              onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">
+              Bulk Ingredient Override (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., 5 lbs of carrots"
+              value={bulkIngredient}
+              onChange={(e) => setBulkIngredient(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
+            />
+          </div>
         </div>
 
         <div>

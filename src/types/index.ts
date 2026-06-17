@@ -1,6 +1,8 @@
 export interface ShoppingItem {
   item: string
-  amount: string
+  amount?: string // Legacy fallback
+  batchAmount?: string
+  singleAmount?: string
   checked?: boolean
 }
 
@@ -11,10 +13,17 @@ export interface Recipe {
   prepTime: number
   tags: string[]
   shoppingList: ShoppingItem[]
-  procedure: string[]
+  procedure?: string[] // Legacy fallback
+  batchProcedure?: string[]
+  singleProcedure?: string[]
+  servings?: number
   createdAt: number
   rating?: number
   feedback?: string
+}
+
+export interface UserPreferences {
+  targetServings?: number
 }
 
 export type ViewState = "dashboard" | "generate" | "detail"

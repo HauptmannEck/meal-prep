@@ -6,7 +6,7 @@ import {
   signOut,
   User,
 } from "firebase/auth"
-import { collection, onSnapshot, DocumentData, QuerySnapshot } from "firebase/firestore"
+import { collection, onSnapshot, DocumentData, QuerySnapshot, doc } from "firebase/firestore"
 import { Routes, Route } from "react-router-dom"
 import { ChefHat } from "lucide-react"
 import { auth, db, appId } from "./lib/firebase"
@@ -15,11 +15,13 @@ import Header from "./components/Header"
 import Dashboard from "./components/Dashboard"
 import Generator from "./components/Generator"
 import RecipeDetail from "./components/RecipeDetail"
-import { Recipe } from "./types"
+import Preferences from "./components/Preferences"
+import { Recipe, UserPreferences } from "./types"
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [recipes, setRecipes] = useState<Recipe[]>([])
+  const [preferences, setPreferences] = useState<UserPreferences>({})
   const [authLoading, setAuthLoading] = useState<boolean>(true)
   const [dataLoading, setDataLoading] = useState<boolean>(true)
 
@@ -75,7 +77,19 @@ export default function App() {
       },
     )
 
-    return () => unsubscribe()
+    const prefRef = doc(db, "artifacts", appId, "users", user.uid, "preferences", "default")
+    const unsubscribePrefs = onSnapshot(prefRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setPreferences(docSnap.data() as UserPreferences)
+      } else {
+        setPreferences({})
+      }
+    })
+
+    return () => {
+      unsubscribe()
+      unsubscribePrefs()
+    }
   }, [user])
 
   if (authLoading || dataLoading) {
@@ -154,7 +168,14 @@ export default function App() {
       <main className="max-w-3xl mx-auto p-4 md:p-6">
         <Routes>
           <Route path="/" element={<Dashboard recipes={recipes} />} />
-          <Route path="/generate" element={<Generator recipes={recipes} userId={user.uid} />} />
+          <Route
+            path="/generate"
+            element={<Generator recipes={recipes} userId={user.uid} preferences={preferences} />}
+          />
+          <Route
+            path="/preferences"
+            element={<Preferences userId={user.uid} preferences={preferences} />}
+          />
           <Route
             path="/recipe/:id"
             element={<RecipeDetail recipes={recipes} userId={user.uid} />}
