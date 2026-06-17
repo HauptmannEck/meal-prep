@@ -20,6 +20,7 @@ export default function Generator({ recipes, userId, preferences, apiStatus }: G
   const [error, setError] = useState<string | null>(null)
   const [showManual, setShowManual] = useState(false)
   const [manualResult, setManualResult] = useState("")
+  const [isCopied, setIsCopied] = useState(false)
   const navigate = useNavigate()
 
   // Try to load persisted options from localStorage
@@ -556,14 +557,20 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
               <label className="block text-sm font-medium text-slate-400 mb-1.5 flex justify-between items-center">
                 System Prompt
                 <button
-                  onClick={() =>
+                  onClick={() => {
                     navigator.clipboard.writeText(
                       systemPrompt + "\n\nGenerate 3 distinct meal configuration options as JSON.",
                     )
-                  }
-                  className="text-teal-400 hover:text-teal-300 font-medium bg-teal-500/10 px-2 py-1 rounded"
+                    setIsCopied(true)
+                    setTimeout(() => setIsCopied(false), 2000)
+                  }}
+                  className={`font-medium px-2 py-1 rounded transition-colors ${
+                    isCopied
+                      ? "bg-emerald-500/20 text-emerald-400"
+                      : "bg-teal-500/10 text-teal-400 hover:text-teal-300"
+                  }`}
                 >
-                  Copy Prompt
+                  {isCopied ? "Copied!" : "Copy Prompt"}
                 </button>
               </label>
               <textarea
