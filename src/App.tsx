@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { GoogleAuthProvider, signInWithPopup, onAuthStateChanged, signOut, User } from 'firebase/auth';
 import { collection, onSnapshot, DocumentData, QuerySnapshot } from 'firebase/firestore';
 import { Routes, Route } from 'react-router-dom';
+import { ChefHat } from 'lucide-react';
 import { auth, db, appId } from './lib/firebase';
 
 import Header from './components/Header';
@@ -13,7 +14,8 @@ import { Recipe } from './types';
 export default function App() {
   const [user, setUser] = useState<User | null>(null);
   const [recipes, setRecipes] = useState<Recipe[]>([]);
-  const [loading, setLoading] = useState<boolean>(true);
+  const [authLoading, setAuthLoading] = useState<boolean>(true);
+  const [dataLoading, setDataLoading] = useState<boolean>(true);
 
   // --- Authentication ---
   useEffect(() => {
@@ -24,7 +26,7 @@ export default function App() {
       } else {
         setUser(currentUser);
       }
-      setLoading(false);
+      setAuthLoading(false);
     });
     return () => unsubscribe();
   }, []);
@@ -40,8 +42,12 @@ export default function App() {
 
   // --- Data Fetching ---
   useEffect(() => {
-    if (!user) return;
+    if (!user) {
+      setDataLoading(false);
+      return;
+    }
 
+    setDataLoading(true);
     const recipesRef = collection(db, 'artifacts', appId, 'users', user.uid, 'recipes');
     
     const unsubscribe = onSnapshot(
@@ -55,15 +61,31 @@ export default function App() {
         // Sort in memory
         fetchedRecipes.sort((a, b) => b.createdAt - a.createdAt);
         setRecipes(fetchedRecipes);
+        setDataLoading(false);
       },
-      (error) => console.error("Firestore error:", error)
+      (error) => {
+        console.error("Firestore error:", error);
+        setDataLoading(false);
+      }
     );
 
     return () => unsubscribe();
   }, [user]);
 
-  if (loading) {
-    return <div className="min-h-screen bg-slate-950 flex items-center justify-center text-slate-400">Initializing Database...</div>;
+  if (authLoading || dataLoading) {
+    return (
+      <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-400">
+        <ChefHat size={48} className="text-teal-500/80 animate-pulse mb-6 drop-shadow-[0_0_15px_rgba(20,184,166,0.5)]" />
+        <div className="flex flex-col items-center gap-2">
+          <p className="text-sm font-semibold tracking-widest text-teal-400/80 uppercase animate-pulse">Meal Ops Engine</p>
+          <div className="flex gap-1">
+            <span className="w-2 h-2 rounded-full bg-teal-500/50 animate-bounce" style={{ animationDelay: '0ms' }} />
+            <span className="w-2 h-2 rounded-full bg-teal-500/50 animate-bounce" style={{ animationDelay: '150ms' }} />
+            <span className="w-2 h-2 rounded-full bg-teal-500/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (!user) {
