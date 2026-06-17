@@ -11,6 +11,7 @@ export interface Recipe {
   name: string
   description: string
   prepTime: number
+  estimatedCalories?: number
   tags: string[]
   shoppingList: ShoppingItem[]
   procedure?: string[] // Legacy fallback

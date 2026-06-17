@@ -1,5 +1,5 @@
 import { useState, useMemo } from "react"
-import { ChefHat, Search, Plus, Star, Clock } from "lucide-react"
+import { ChefHat, Search, Plus, Star, Clock, Flame } from "lucide-react"
 import { useNavigate } from "react-router-dom"
 import { Recipe } from "../types"
 
@@ -87,8 +87,14 @@ export default function Dashboard({ recipes }: DashboardProps) {
               </div>
               <div className="flex items-center justify-between text-xs text-slate-500 border-t border-slate-800/50 pt-3 mt-auto">
                 <span className="flex items-center gap-1">
-                  <Clock size={14} /> {recipe.prepTime} min prep
+                  <Clock size={14} /> {recipe.prepTime} min
                 </span>
+                {recipe.estimatedCalories && (
+                  <span className="flex items-center gap-1">
+                    <Flame size={14} className="text-orange-500/70" /> {recipe.estimatedCalories}{" "}
+                    kcal
+                  </span>
+                )}
                 <span>
                   {new Date(recipe.createdAt).toLocaleDateString(undefined, {
                     month: "short",

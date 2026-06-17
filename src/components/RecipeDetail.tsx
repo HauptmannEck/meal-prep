@@ -1,5 +1,15 @@
 import { useState } from "react"
-import { ChefHat, ShoppingCart, List, Star, Clock, Trash2, Save, RefreshCw } from "lucide-react"
+import {
+  ChefHat,
+  ShoppingCart,
+  List,
+  Star,
+  Clock,
+  Trash2,
+  Save,
+  RefreshCw,
+  Flame,
+} from "lucide-react"
 import { doc, setDoc, deleteDoc } from "firebase/firestore"
 import { db, appId } from "../lib/firebase"
 import { Recipe } from "../types"
@@ -114,6 +124,12 @@ export default function RecipeDetail({ recipes, userId }: RecipeDetailProps) {
             <span className="flex items-center gap-1.5 text-slate-300 font-medium">
               <Clock size={16} className="text-teal-500" /> {recipe.prepTime} mins
             </span>
+            {recipe.estimatedCalories && (
+              <span className="flex items-center gap-1.5 text-slate-300 font-medium border-l border-slate-800 pl-4">
+                <Flame size={16} className="text-orange-500" /> {recipe.estimatedCalories} kcal /
+                serving
+              </span>
+            )}
           </div>
         </div>
 

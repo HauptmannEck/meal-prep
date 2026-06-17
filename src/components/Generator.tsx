@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react"
-import { RefreshCw, ChefHat, Clock, ArrowLeft, X } from "lucide-react"
+import { RefreshCw, ChefHat, Clock, ArrowLeft, X, Flame } from "lucide-react"
 import { doc, setDoc } from "firebase/firestore"
 import { db, appId, geminiApiKey } from "../lib/firebase"
 import { Recipe, UserPreferences, ApiStatus } from "../types"
@@ -90,6 +90,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       "name": "Creative but descriptive name",
       "description": "A mouthwatering 1-2 sentence description explaining the dish, its texture, and flavor profile.",
       "prepTime": 15,
+      "estimatedCalories": 450,
       "tags": ["high-protein", "one-pan", "spicy"],
       "shoppingList": [
         { "item": "Ground Turkey (93% lean)", "batchAmount": "3 lbs", "singleAmount": "0.5 lbs" },
@@ -243,6 +244,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         name: option.name || "Untitled Meal",
         description: option.description || "No description provided.",
         prepTime: option.prepTime || 15,
+        estimatedCalories: option.estimatedCalories,
         tags: option.tags || [],
         shoppingList: option.shoppingList || [],
         batchProcedure: option.batchProcedure || [],
@@ -294,6 +296,12 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                     <span className="text-xs font-medium bg-slate-950 text-slate-300 px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
                       <Clock size={12} className="text-teal-500" /> {previewRecipe.prepTime} mins
                     </span>
+                    {previewRecipe.estimatedCalories && (
+                      <span className="text-xs font-medium bg-slate-950 text-slate-300 px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
+                        <Flame size={12} className="text-orange-500" />{" "}
+                        {previewRecipe.estimatedCalories} kcal
+                      </span>
+                    )}
                   </div>
                   <p className="text-slate-300 text-sm leading-relaxed">
                     {previewRecipe.description}
@@ -407,8 +415,15 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
                 <p className="text-sm text-slate-400 mb-3 line-clamp-3 leading-relaxed">
                   {opt.description}
                 </p>
-                <div className="flex items-center gap-1.5 text-sm text-slate-300 mb-4 font-medium">
-                  <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
+                <div className="flex items-center gap-3 text-sm text-slate-300 mb-4 font-medium">
+                  <span className="flex items-center gap-1.5">
+                    <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
+                  </span>
+                  {opt.estimatedCalories && (
+                    <span className="flex items-center gap-1.5">
+                      <Flame size={16} className="text-orange-500" /> {opt.estimatedCalories} kcal
+                    </span>
+                  )}
                 </div>
                 <div className="flex flex-wrap gap-2 mb-6">
                   {opt.tags?.slice(0, 4).map((tag) => (
