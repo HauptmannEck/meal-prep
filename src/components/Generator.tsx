@@ -1,5 +1,5 @@
-import { useState } from 'react';
-import { RefreshCw, ChefHat, Clock, ArrowLeft } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { RefreshCw, ChefHat, Clock, ArrowLeft, X } from 'lucide-react';
 import { doc, setDoc } from 'firebase/firestore';
 import { db, appId, geminiApiKey } from '../lib/firebase';
 import { Recipe } from '../types';
@@ -16,9 +16,32 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
   const [isGenerating, setIsGenerating] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const navigate = useNavigate();
+  
+  // Try to load persisted options from localStorage
+  const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(() => {
+    try {
+      const saved = localStorage.getItem('mealOps_generatedOptions');
+      if (saved) return JSON.parse(saved);
+    } catch (e) {
+      console.warn("Failed to parse cached options", e);
+    }
+    return null;
+  });
 
-  // Array of 3 AI-generated options
-  const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(null);
+  const [previewRecipe, setPreviewRecipe] = useState<Partial<Recipe> | null>(null);
+
+  // Sync to localStorage whenever generatedOptions changes
+  useEffect(() => {
+    if (generatedOptions && generatedOptions.length > 0) {
+      localStorage.setItem('mealOps_generatedOptions', JSON.stringify(generatedOptions));
+    } else {
+      localStorage.removeItem('mealOps_generatedOptions');
+    }
+  }, [generatedOptions]);
+
+  const handleDiscard = () => {
+    setGeneratedOptions(null);
+  };
 
   const generateOptions = async () => {
     setIsGenerating(true);
@@ -34,7 +57,7 @@ export default function Generator({ recipes, userId }: GeneratorProps) {
 Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly 6 portions.
 
 CRITICAL RULES & VARIANCE:
-1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider a vegetarian dish as one of the three primary options.
+1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider vegetarian dishes as a primary option.
 2. All 3 options MUST draw from entirely different global cuisines.
 3. All 3 options MUST use different preparation styles.
 4. Do NOT rely on cliches like "gochujang", "harissa", or "za'atar". Branch out into diverse and unique flavor profiles.
@@ -101,7 +124,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       }
 
       if (!resultText) throw new Error("Failed to extract JSON from AI response.");
-
+      
       // Clean up markdown blockquotes and any trailing garbage characters
       let cleanText = resultText.replace(/```json/g, '').replace(/```/g, '').trim();
       let startIndex = cleanText.indexOf('{');
@@ -131,7 +154,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       if (!parsedData.options || !Array.isArray(parsedData.options) || parsedData.options.length === 0) {
         throw new Error("AI returned invalid JSON schema.");
       }
-
+      
       setGeneratedOptions(parsedData.options);
 
     } catch (err) {
@@ -159,6 +182,12 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       };
 
       await setDoc(doc(db, 'artifacts', appId, 'users', userId, 'recipes', docId), newRecipe);
+      
+      // Clear persistence and cache
+      localStorage.removeItem('mealOps_generatedOptions');
+      setGeneratedOptions(null);
+      setPreviewRecipe(null);
+      
       navigate(`/recipe/${docId}`);
     } catch (err) {
       console.error("Error saving selected recipe:", err);
@@ -170,42 +199,142 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
   if (generatedOptions && generatedOptions.length > 0) {
     return (
       <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4">
+        
+        {/* Modal Overlay */}
+        {previewRecipe && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-950/80 backdrop-blur-sm animate-in fade-in duration-200">
+            <div className="bg-slate-900 border border-slate-700 rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col shadow-2xl animate-in zoom-in-95 duration-200">
+              
+              {/* Modal Header */}
+              <div className="p-6 border-b border-slate-800 flex justify-between items-start shrink-0">
+                <div>
+                  <h2 className="text-2xl font-bold text-slate-100 mb-2 leading-tight pr-8">{previewRecipe.name}</h2>
+                  <div className="flex flex-wrap gap-2 mb-3">
+                    {previewRecipe.tags?.map(tag => (
+                      <span key={tag} className="text-xs font-medium bg-slate-950 text-teal-400 px-2.5 py-1 rounded-full border border-teal-500/20">
+                        {tag}
+                      </span>
+                    ))}
+                    <span className="text-xs font-medium bg-slate-950 text-slate-300 px-2.5 py-1 rounded-full border border-slate-800 flex items-center gap-1">
+                      <Clock size={12} className="text-teal-500" /> {previewRecipe.prepTime} mins
+                    </span>
+                  </div>
+                  <p className="text-slate-300 text-sm leading-relaxed">
+                    {previewRecipe.description}
+                  </p>
+                </div>
+                <button 
+                  onClick={() => setPreviewRecipe(null)}
+                  className="p-2 text-slate-400 hover:text-white bg-slate-800/50 hover:bg-slate-800 rounded-lg transition-colors border border-transparent hover:border-slate-700 absolute top-6 right-6"
+                >
+                  <X size={20} />
+                </button>
+              </div>
+
+              {/* Modal Body */}
+              <div className="p-6 overflow-y-auto flex-1 bg-slate-950/30 grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">Shopping List</h3>
+                  <ul className="space-y-3">
+                    {previewRecipe.shoppingList?.map((item, idx) => (
+                      <li key={idx} className="flex items-start gap-2 text-sm">
+                        <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-teal-500 flex-shrink-0" />
+                        <div>
+                          <span className="font-semibold text-teal-400 block sm:inline sm:mr-2">{item.amount}</span>
+                          <span className="text-slate-300">{item.item}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+
+                <div>
+                  <h3 className="font-semibold text-slate-300 mb-4 pb-2 border-b border-slate-800">Procedure</h3>
+                  <div className="space-y-4">
+                    {previewRecipe.procedure?.map((step, idx) => {
+                      const parts = step.split(': ');
+                      return (
+                        <div key={idx} className="flex gap-3 text-sm">
+                          <div className="flex-shrink-0 font-bold text-teal-500 w-5">
+                            {idx + 1}.
+                          </div>
+                          <p className="text-slate-300 leading-relaxed">
+                            {parts.length > 1 ? (
+                              <><span className="font-semibold text-teal-300">{parts[0]}: </span>{parts.slice(1).join(': ')}</>
+                            ) : (
+                              step
+                            )}
+                          </p>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="p-6 border-t border-slate-800 bg-slate-900 shrink-0 flex gap-3 justify-end">
+                <button 
+                  onClick={() => setPreviewRecipe(null)}
+                  className="px-5 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors"
+                >
+                  Close
+                </button>
+                <button 
+                  onClick={() => selectRecipe(previewRecipe)}
+                  className="bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-6 py-2.5 rounded-lg transition-all shadow-lg shadow-teal-500/20"
+                >
+                  Select This Meal
+                </button>
+              </div>
+
+            </div>
+          </div>
+        )}
+
         <div className="flex items-center justify-between">
           <h2 className="text-xl font-bold text-slate-100 flex items-center gap-2">
             <ChefHat className="text-teal-400" /> Choose Your Matrix
           </h2>
-          <button
-            onClick={() => setGeneratedOptions(null)}
+          <button 
+            onClick={handleDiscard}
             className="text-slate-400 hover:text-white transition-colors flex items-center gap-2 text-sm font-medium"
           >
             <ArrowLeft size={16} /> Discard & Start Over
           </button>
         </div>
-
-        <p className="text-slate-400 text-sm">Select one of these distinct configurations for your current workweek.</p>
+        
+        <p className="text-slate-400 text-sm">Select one of these distinct configurations for your current workweek. Click a card to see the full recipe.</p>
 
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           {generatedOptions.map((opt, idx) => (
-            <div key={idx} className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-teal-500/30 transition-colors">
+            <div 
+              key={idx} 
+              onClick={() => setPreviewRecipe(opt)}
+              className="bg-slate-900 border border-slate-800 rounded-xl p-5 flex flex-col justify-between hover:border-teal-500/50 cursor-pointer transition-all group hover:bg-slate-800/50"
+            >
               <div>
-                <h3 className="font-bold text-slate-100 mb-2 text-lg leading-tight">{opt.name}</h3>
-                <p className="text-sm text-slate-400 mb-3 line-clamp-3">{opt.description}</p>
+                <h3 className="font-bold text-slate-100 mb-2 text-lg leading-tight group-hover:text-teal-300 transition-colors">{opt.name}</h3>
+                <p className="text-sm text-slate-400 mb-3 line-clamp-3 leading-relaxed">{opt.description}</p>
                 <div className="flex items-center gap-1.5 text-sm text-slate-300 mb-4 font-medium">
                   <Clock size={16} className="text-teal-500" /> {opt.prepTime} mins
                 </div>
                 <div className="flex flex-wrap gap-2 mb-6">
-                  {opt.tags?.slice(0, 4).map(tag => (
+                  {opt.tags?.slice(0,4).map(tag => (
                     <span key={tag} className="text-xs bg-slate-950 text-slate-400 px-2 py-1 rounded-md border border-slate-800">
                       {tag}
                     </span>
                   ))}
                 </div>
               </div>
-              <button
-                onClick={() => selectRecipe(opt)}
-                className="w-full bg-slate-800 hover:bg-teal-500 hover:text-slate-950 text-teal-400 font-semibold py-2.5 rounded-lg transition-all border border-slate-700 hover:border-teal-400"
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  selectRecipe(opt);
+                }}
+                className="w-full bg-slate-800 group-hover:bg-teal-500 group-hover:text-slate-950 text-teal-400 font-semibold py-2.5 rounded-lg transition-all border border-slate-700 group-hover:border-teal-400 mt-auto"
               >
-                Select This Meal
+                Quick Select
               </button>
             </div>
           ))}
@@ -224,9 +353,9 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       <div className="space-y-5">
         <div>
           <label className="block text-sm font-medium text-slate-400 mb-1.5">Bulk Ingredient Override (Optional)</label>
-          <input
-            type="text"
-            placeholder="e.g., 5 lbs of carrots, leftover quinoa"
+          <input 
+            type="text" 
+            placeholder="e.g., 5 lbs of carrots, leftover quinoa" 
             value={bulkIngredient}
             onChange={(e) => setBulkIngredient(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
@@ -235,9 +364,9 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 
         <div>
           <label className="block text-sm font-medium text-slate-400 mb-1.5">Specific Cravings / Mechanics</label>
-          <input
-            type="text"
-            placeholder="e.g., Sheet pan only, heavy spice, fish"
+          <input 
+            type="text" 
+            placeholder="e.g., Sheet pan only, heavy spice, fish" 
             value={cravings}
             onChange={(e) => setCravings(e.target.value)}
             className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
@@ -247,14 +376,14 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         {error && <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg border border-red-400/20">{error}</div>}
 
         <div className="flex gap-3 pt-4">
-          <button
+          <button 
             onClick={() => navigate('/')}
             disabled={isGenerating}
             className="px-4 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50"
           >
             Cancel
           </button>
-          <button
+          <button 
             onClick={generateOptions}
             disabled={isGenerating}
             className="flex-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
