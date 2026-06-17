@@ -112,7 +112,7 @@ export default function App() {
         />
         <div className="flex flex-col items-center gap-2">
           <p className="text-sm font-semibold tracking-widest text-teal-400/80 uppercase animate-pulse">
-            Meal Ops Engine
+            Meal Prep Engine
           </p>
           <div className="flex gap-1">
             <span
@@ -138,7 +138,7 @@ export default function App() {
       <div className="min-h-screen bg-slate-950 flex flex-col items-center justify-center text-slate-200">
         <div className="bg-slate-900 border border-slate-800 p-8 rounded-2xl shadow-2xl max-w-sm w-full text-center">
           <h1 className="text-2xl font-bold bg-gradient-to-r from-teal-400 to-emerald-400 bg-clip-text text-transparent mb-6">
-            Meal Ops
+            Meal Prep
           </h1>
           <p className="text-slate-400 text-sm mb-8">
             Sign in to sync your generated meals across all your devices.

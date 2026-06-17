@@ -1,4 +1,4 @@
-# Meal Prep (Meal Ops)
+# Meal Prep
 
 A generative AI-powered meal planning application designed to intelligently craft diverse, healthy, and easy-to-cook recipes based on user context, past ratings, and current cravings.
 

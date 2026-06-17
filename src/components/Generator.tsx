@@ -26,7 +26,7 @@ export default function Generator({ recipes, userId, preferences, apiStatus }: G
   // Try to load persisted options from localStorage
   const [generatedOptions, setGeneratedOptions] = useState<Partial<Recipe>[] | null>(() => {
     try {
-      const saved = localStorage.getItem("mealOps_generatedOptions")
+      const saved = localStorage.getItem("mealPrep_generatedOptions")
       if (saved) return JSON.parse(saved)
     } catch (e) {
       console.warn("Failed to parse cached options", e)
@@ -39,9 +39,9 @@ export default function Generator({ recipes, userId, preferences, apiStatus }: G
   // Sync to localStorage whenever generatedOptions changes
   useEffect(() => {
     if (generatedOptions && generatedOptions.length > 0) {
-      localStorage.setItem("mealOps_generatedOptions", JSON.stringify(generatedOptions))
+      localStorage.setItem("mealPrep_generatedOptions", JSON.stringify(generatedOptions))
     } else {
-      localStorage.removeItem("mealOps_generatedOptions")
+      localStorage.removeItem("mealPrep_generatedOptions")
     }
   }, [generatedOptions])
 
@@ -255,7 +255,7 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
       await setDoc(doc(db, "artifacts", appId, "users", userId, "recipes", docId), newRecipe)
 
       // Clear persistence and cache
-      localStorage.removeItem("mealOps_generatedOptions")
+      localStorage.removeItem("mealPrep_generatedOptions")
       setGeneratedOptions(null)
       setPreviewRecipe(null)
 
