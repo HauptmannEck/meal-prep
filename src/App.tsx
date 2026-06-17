@@ -16,12 +16,13 @@ import Dashboard from "./components/Dashboard"
 import Generator from "./components/Generator"
 import RecipeDetail from "./components/RecipeDetail"
 import Preferences from "./components/Preferences"
-import { Recipe, UserPreferences } from "./types"
+import { Recipe, UserPreferences, ApiStatus } from "./types"
 
 export default function App() {
   const [user, setUser] = useState<User | null>(null)
   const [recipes, setRecipes] = useState<Recipe[]>([])
   const [preferences, setPreferences] = useState<UserPreferences>({})
+  const [apiStatus, setApiStatus] = useState<ApiStatus>({ status: "active" })
   const [authLoading, setAuthLoading] = useState<boolean>(true)
   const [dataLoading, setDataLoading] = useState<boolean>(true)
 
@@ -86,9 +87,19 @@ export default function App() {
       }
     })
 
+    const apiStatusRef = doc(db, "artifacts", appId, "global", "apiStatus")
+    const unsubscribeApiStatus = onSnapshot(apiStatusRef, (docSnap) => {
+      if (docSnap.exists()) {
+        setApiStatus(docSnap.data() as ApiStatus)
+      } else {
+        setApiStatus({ status: "active" })
+      }
+    })
+
     return () => {
       unsubscribe()
       unsubscribePrefs()
+      unsubscribeApiStatus()
     }
   }, [user])
 
@@ -170,7 +181,14 @@ export default function App() {
           <Route path="/" element={<Dashboard recipes={recipes} />} />
           <Route
             path="/generate"
-            element={<Generator recipes={recipes} userId={user.uid} preferences={preferences} />}
+            element={
+              <Generator
+                recipes={recipes}
+                userId={user.uid}
+                preferences={preferences}
+                apiStatus={apiStatus}
+              />
+            }
           />
           <Route
             path="/preferences"

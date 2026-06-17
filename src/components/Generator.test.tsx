@@ -87,4 +87,26 @@ describe("Generator", () => {
     // Ensure the engine form is replaced by the matrix UI
     expect(screen.queryByText("Meal Generator Engine")).not.toBeInTheDocument()
   })
+
+  it("locks the UI and shows manual path when global rate limit is active", () => {
+    const rateLimitedStatus = {
+      status: "rate_limited" as const,
+      limitType: "daily" as const,
+      expiresAt: Date.now() + 100000,
+    }
+
+    render(
+      <MemoryRouter>
+        <Generator recipes={[]} userId="user1" apiStatus={rateLimitedStatus} />
+      </MemoryRouter>,
+    )
+
+    expect(screen.getByText("Global API Limit Reached")).toBeInTheDocument()
+
+    const generateBtn = screen.getByRole("button", { name: /Generate 3 Options/i })
+    expect(generateBtn).toBeDisabled()
+
+    // Manual path should be visible when locked out
+    expect(screen.getByText(/Copy this prompt/i)).toBeInTheDocument()
+  })
 })

@@ -1,22 +1,25 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useMemo } from "react"
 import { RefreshCw, ChefHat, Clock, ArrowLeft, X } from "lucide-react"
 import { doc, setDoc } from "firebase/firestore"
 import { db, appId, geminiApiKey } from "../lib/firebase"
-import { Recipe, UserPreferences } from "../types"
+import { Recipe, UserPreferences, ApiStatus } from "../types"
 import { useNavigate } from "react-router-dom"
 
 interface GeneratorProps {
   recipes: Recipe[]
   userId: string
   preferences?: UserPreferences
+  apiStatus?: ApiStatus
 }
 
-export default function Generator({ recipes, userId, preferences }: GeneratorProps) {
+export default function Generator({ recipes, userId, preferences, apiStatus }: GeneratorProps) {
   const [bulkIngredient, setBulkIngredient] = useState("")
   const [cravings, setCravings] = useState("")
   const [targetServings, setTargetServings] = useState<number>(preferences?.targetServings || 6)
   const [isGenerating, setIsGenerating] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showManual, setShowManual] = useState(false)
+  const [manualResult, setManualResult] = useState("")
   const navigate = useNavigate()
 
   // Try to load persisted options from localStorage
@@ -45,12 +48,7 @@ export default function Generator({ recipes, userId, preferences }: GeneratorPro
     setGeneratedOptions(null)
   }
 
-  const generateOptions = async () => {
-    setIsGenerating(true)
-    setError(null)
-    setGeneratedOptions(null)
-
-    // Filter past recipes to provide context
+  const systemPrompt = useMemo(() => {
     const highRated = recipes
       .filter((r) => (r.rating || 0) >= 8)
       .map((r) => r.name)
@@ -61,7 +59,7 @@ export default function Generator({ recipes, userId, preferences }: GeneratorPro
       .slice(0, 3)
     const recentMeals = recipes.slice(0, 5).map((r) => r.name)
 
-    const systemPrompt = `You are a highly creative Culinary Engine. 
+    return `You are a highly creative Culinary Engine. 
 Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly ${targetServings} portions.
 
 CRITICAL RULES & VARIANCE:
@@ -105,6 +103,95 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
     }
   ]
 }`
+  }, [recipes, targetServings, cravings, bulkIngredient])
+
+  const processJsonResult = (resultText: string) => {
+    let cleanText = resultText
+      .replace(/```json/g, "")
+      .replace(/```/g, "")
+      .trim()
+    let startIndex = cleanText.indexOf("{")
+    if (startIndex === -1) throw new Error("Could not find JSON object bounds in response.")
+
+    let jsonStr = cleanText.substring(startIndex)
+    let parsedData
+    let isValid = false
+
+    while (jsonStr.length > 20) {
+      try {
+        parsedData = JSON.parse(jsonStr)
+        isValid = true
+        break
+      } catch (err) {
+        const lastBrace = jsonStr.lastIndexOf("}")
+        if (lastBrace === -1) break
+        jsonStr = jsonStr.substring(0, lastBrace).trim()
+      }
+    }
+
+    if (!isValid || !parsedData) {
+      throw new Error("AI returned malformed JSON that could not be repaired.")
+    }
+
+    if (
+      !parsedData.options ||
+      !Array.isArray(parsedData.options) ||
+      parsedData.options.length === 0
+    ) {
+      throw new Error("AI returned invalid JSON schema.")
+    }
+
+    setGeneratedOptions(parsedData.options)
+  }
+
+  const handleManualProcess = () => {
+    try {
+      setError(null)
+      processJsonResult(manualResult)
+    } catch (err: any) {
+      setError(err.message || "Failed to process manual result.")
+    }
+  }
+
+  const broadcastApiError = async (status: number, message: string) => {
+    try {
+      let limitType: "minute" | "daily" | null = null
+      let expiresAt = Date.now()
+      let newStatus: "rate_limited" | "timeout" = "rate_limited"
+
+      if (status === 503) {
+        newStatus = "timeout"
+        expiresAt += 10000 // 10 seconds
+      } else if (status === 429) {
+        if (message.toLowerCase().includes("quota") || message.toLowerCase().includes("daily")) {
+          limitType = "daily"
+          // Calculate ms until midnight PT
+          const now = new Date()
+          const ptString = now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })
+          const ptDate = new Date(ptString)
+          ptDate.setHours(24, 0, 0, 0)
+          const msUntilMidnightPT = ptDate.getTime() - new Date(ptString).getTime()
+          expiresAt += msUntilMidnightPT
+        } else {
+          limitType = "minute"
+          expiresAt += 60000 // 1 minute
+        }
+      }
+
+      await setDoc(doc(db, "artifacts", appId, "global", "apiStatus"), {
+        status: newStatus,
+        limitType,
+        expiresAt,
+      })
+    } catch (err) {
+      console.error("Failed to broadcast API error", err)
+    }
+  }
+
+  const generateOptions = async () => {
+    setIsGenerating(true)
+    setError(null)
+    setGeneratedOptions(null)
 
     try {
       const response = await fetch(
@@ -122,53 +209,25 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
         },
       )
 
-      if (!response.ok) throw new Error(`API Error: ${response.status}`)
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        const errorMessage = errorData?.error?.message || ""
+        if (response.status === 429 || response.status === 503) {
+          await broadcastApiError(response.status, errorMessage)
+          throw new Error(`API locked out (${response.status})`)
+        }
+        throw new Error(`API Error: ${response.status}`)
+      }
+
       const data = await response.json()
       const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text
 
       if (!resultText) throw new Error("Failed to extract JSON from AI response.")
 
-      // Clean up markdown blockquotes and any trailing garbage characters
-      let cleanText = resultText
-        .replace(/```json/g, "")
-        .replace(/```/g, "")
-        .trim()
-      let startIndex = cleanText.indexOf("{")
-      if (startIndex === -1) throw new Error("Could not find JSON object bounds in response.")
-
-      let jsonStr = cleanText.substring(startIndex)
-
-      let parsedData
-      let isValid = false
-
-      while (jsonStr.length > 20) {
-        try {
-          parsedData = JSON.parse(jsonStr)
-          isValid = true
-          break
-        } catch (err) {
-          const lastBrace = jsonStr.lastIndexOf("}")
-          if (lastBrace === -1) break
-          jsonStr = jsonStr.substring(0, lastBrace).trim()
-        }
-      }
-
-      if (!isValid || !parsedData) {
-        throw new Error("AI returned malformed JSON that could not be repaired.")
-      }
-
-      if (
-        !parsedData.options ||
-        !Array.isArray(parsedData.options) ||
-        parsedData.options.length === 0
-      ) {
-        throw new Error("AI returned invalid JSON schema.")
-      }
-
-      setGeneratedOptions(parsedData.options)
-    } catch (err) {
+      processJsonResult(resultText)
+    } catch (err: any) {
       console.error(err)
-      setError("Engine failed to generate recipes. Please try again.")
+      setError(err.message || "Engine failed to generate recipes. Please try again.")
     } finally {
       setIsGenerating(false)
     }
@@ -375,84 +434,177 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
     )
   }
 
+  // Evaluate Global Lockout
+  const isLockedOut = apiStatus?.status !== "active" && (apiStatus?.expiresAt || 0) > Date.now()
+
   // Input UI
   return (
-    <div className="max-w-xl mx-auto bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl animate-in fade-in slide-in-from-bottom-4">
-      <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-100">
-        <RefreshCw size={20} className="text-teal-400" /> Meal Generator Engine
-      </h2>
+    <div className="max-w-xl mx-auto space-y-6 animate-in fade-in slide-in-from-bottom-4">
+      <div className="bg-slate-900 p-6 rounded-xl border border-slate-800 shadow-xl">
+        <h2 className="text-xl font-bold mb-6 flex items-center gap-2 text-slate-100">
+          <RefreshCw size={20} className="text-teal-400" /> Meal Generator Engine
+        </h2>
 
-      <div className="space-y-5">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">
-              Target Servings
-            </label>
-            <input
-              type="number"
-              min="1"
-              value={targetServings}
-              onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-slate-400 mb-1.5">
-              Bulk Ingredient Override (Optional)
-            </label>
-            <input
-              type="text"
-              placeholder="e.g., 5 lbs of carrots"
-              value={bulkIngredient}
-              onChange={(e) => setBulkIngredient(e.target.value)}
-              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
-            />
-          </div>
-        </div>
-
-        <div>
-          <label className="block text-sm font-medium text-slate-400 mb-1.5">
-            Specific Cravings / Mechanics
-          </label>
-          <input
-            type="text"
-            placeholder="e.g., Sheet pan only, heavy spice, fish"
-            value={cravings}
-            onChange={(e) => setCravings(e.target.value)}
-            className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
-          />
-        </div>
-
-        {error && (
-          <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg border border-red-400/20">
-            {error}
+        {isLockedOut && (
+          <div className="mb-6 p-4 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200">
+            <h3 className="font-bold flex items-center gap-2 mb-1">Global API Limit Reached</h3>
+            <p className="text-sm text-amber-300/80 mb-2">
+              {apiStatus?.limitType === "daily"
+                ? "The global daily quota for the free-tier Gemini API has been exhausted. It will reset at midnight PT."
+                : "The system is momentarily overwhelmed with requests. Please wait a minute or use the manual path."}
+            </p>
+            <p className="text-sm text-amber-300/80">
+              The primary engine is locked. Please expand the{" "}
+              <strong>Manual Generation Path</strong> below to generate your meals using your
+              personal Gemini account.
+            </p>
           </div>
         )}
 
-        <div className="flex gap-3 pt-4">
-          <button
-            onClick={() => navigate("/")}
-            disabled={isGenerating}
-            className="px-4 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50"
-          >
-            Cancel
-          </button>
-          <button
-            onClick={generateOptions}
-            disabled={isGenerating}
-            className="flex-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
-          >
-            {isGenerating ? (
-              <>
-                <RefreshCw size={18} className="animate-spin" /> Processing Matrix...
-              </>
-            ) : (
-              <>
-                <ChefHat size={18} /> Generate 3 Options
-              </>
-            )}
-          </button>
+        <div className="space-y-5">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">
+                Target Servings
+              </label>
+              <input
+                type="number"
+                min="1"
+                value={targetServings}
+                onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">
+                Bulk Ingredient Override (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g., 5 lbs of carrots"
+                value={bulkIngredient}
+                onChange={(e) => setBulkIngredient(e.target.value)}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-1.5">
+              Specific Cravings / Mechanics
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Sheet pan only, heavy spice, fish"
+              value={cravings}
+              onChange={(e) => setCravings(e.target.value)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
+            />
+          </div>
+
+          {error && (
+            <div className="text-red-400 text-sm bg-red-400/10 p-3 rounded-lg border border-red-400/20">
+              {error}
+            </div>
+          )}
+
+          <div className="flex gap-3 pt-4">
+            <button
+              onClick={() => navigate("/")}
+              disabled={isGenerating}
+              className="px-4 py-2.5 rounded-lg text-slate-400 font-medium hover:bg-slate-800 hover:text-slate-200 transition-colors disabled:opacity-50"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={generateOptions}
+              disabled={isGenerating || isLockedOut}
+              className="flex-1 bg-teal-500 hover:bg-teal-400 text-slate-950 font-semibold px-4 py-2.5 rounded-lg flex items-center justify-center gap-2 transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-teal-500/20"
+            >
+              {isGenerating ? (
+                <>
+                  <RefreshCw size={18} className="animate-spin" /> Processing Matrix...
+                </>
+              ) : (
+                <>
+                  <ChefHat size={18} /> Generate 3 Options
+                </>
+              )}
+            </button>
+          </div>
         </div>
+      </div>
+
+      {/* Manual Mode UI */}
+      <div className="bg-slate-900 rounded-xl border border-slate-800 shadow-xl overflow-hidden">
+        <button
+          onClick={() => setShowManual(!showManual)}
+          className="w-full p-4 flex items-center justify-between text-slate-300 font-semibold hover:bg-slate-800/50 transition-colors"
+        >
+          <span>Manual Generation Path</span>
+          <span className="text-xl leading-none">{showManual ? "−" : "+"}</span>
+        </button>
+
+        {(showManual || isLockedOut) && (
+          <div className="p-6 border-t border-slate-800 space-y-6">
+            <div className="text-sm text-slate-400">
+              Copy this prompt, run it in your personal Gemini account, and paste the result below
+              to bypass any global rate limits.
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5 flex justify-between items-center">
+                System Prompt
+                <button
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      systemPrompt + "\n\nGenerate 3 distinct meal configuration options as JSON.",
+                    )
+                  }
+                  className="text-teal-400 hover:text-teal-300 font-medium bg-teal-500/10 px-2 py-1 rounded"
+                >
+                  Copy Prompt
+                </button>
+              </label>
+              <textarea
+                readOnly
+                value={systemPrompt}
+                className="w-full h-32 bg-slate-950 border border-slate-800 rounded-lg p-3 text-xs text-slate-500 font-mono resize-none focus:outline-none"
+              />
+            </div>
+
+            <div className="flex justify-center">
+              <a
+                href="https://gemini.google.com/app"
+                target="_blank"
+                rel="noreferrer"
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-blue-500/10 text-blue-400 font-medium hover:bg-blue-500/20 transition-colors border border-blue-500/20"
+              >
+                Open Google Gemini ↗
+              </a>
+            </div>
+
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">
+                Paste JSON Result
+              </label>
+              <textarea
+                value={manualResult}
+                onChange={(e) => setManualResult(e.target.value)}
+                placeholder="Paste the raw output here..."
+                className="w-full h-32 bg-slate-950 border border-slate-800 rounded-lg p-3 text-sm text-slate-200 font-mono focus:outline-none focus:border-teal-500/50"
+              />
+            </div>
+
+            <button
+              onClick={handleManualProcess}
+              disabled={!manualResult.trim()}
+              className="w-full bg-slate-800 hover:bg-slate-700 text-teal-400 font-semibold px-4 py-2.5 rounded-lg transition-colors border border-slate-700 hover:border-slate-600 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Process Manual Result
+            </button>
+          </div>
+        )}
       </div>
     </div>
   )

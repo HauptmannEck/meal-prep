@@ -26,4 +26,10 @@ export interface UserPreferences {
   targetServings?: number
 }
 
+export interface ApiStatus {
+  status: "active" | "rate_limited" | "timeout"
+  limitType?: "minute" | "daily" | null
+  expiresAt?: number
+}
+
 export type ViewState = "dashboard" | "generate" | "detail"
