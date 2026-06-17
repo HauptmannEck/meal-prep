@@ -107,38 +107,24 @@ Respond ONLY with a valid JSON object. Do not wrap it in markdown block quotes. 
 }`
 
     try {
-      let resultText = ""
-      let retries = 5
-      let delay = 1000
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [
+              { parts: [{ text: "Generate 3 distinct meal configuration options as JSON." }] },
+            ],
+            systemInstruction: { parts: [{ text: systemPrompt }] },
+            generationConfig: { responseMimeType: "application/json" },
+          }),
+        },
+      )
 
-      while (retries > 0) {
-        try {
-          const response = await fetch(
-            `https://generativelanguage.googleapis.com/v1beta/models/gemini-3.5-flash:generateContent?key=${geminiApiKey}`,
-            {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                contents: [
-                  { parts: [{ text: "Generate 3 distinct meal configuration options as JSON." }] },
-                ],
-                systemInstruction: { parts: [{ text: systemPrompt }] },
-                generationConfig: { responseMimeType: "application/json" },
-              }),
-            },
-          )
-
-          if (!response.ok) throw new Error(`API Error: ${response.status}`)
-          const data = await response.json()
-          resultText = data.candidates?.[0]?.content?.parts?.[0]?.text
-          break // Success
-        } catch (err) {
-          retries--
-          if (retries === 0) throw err
-          await new Promise((res) => setTimeout(res, delay))
-          delay *= 2
-        }
-      }
+      if (!response.ok) throw new Error(`API Error: ${response.status}`)
+      const data = await response.json()
+      const resultText = data.candidates?.[0]?.content?.parts?.[0]?.text
 
       if (!resultText) throw new Error("Failed to extract JSON from AI response.")
 
