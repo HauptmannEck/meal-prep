@@ -5,6 +5,8 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
+    "dev-emulate": "cross-env VITE_USE_FIREBASE_EMULATOR=true vite",
+    "emulators": "firebase emulators:start",
     "build": "tsc -b && vite build",
     "lint": "oxlint",
     "format": "oxfmt",
@@ -29,6 +31,7 @@
     "@types/react-dom": "^18.3.7",
     "@vitejs/plugin-react": "^4.2.1",
     "autoprefixer": "^10.4.19",
+    "cross-env": "^10.1.0",
     "jsdom": "^29.1.1",
     "oxfmt": "^0.55.0",
     "oxlint": "^1.70.0",

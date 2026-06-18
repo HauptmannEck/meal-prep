@@ -35,4 +35,11 @@ When tasked with expanding this application:
 
 1. Try to test your components directly using `npm run test`.
 2. Do not reinstall ESLint. Stick to Oxlint.
-3. If modifying the AI generation schema in `Generator.tsx`, make sure you update the TS interfaces in `src/types/index.ts` and the UI mapping in `RecipeDetail.tsx`.
+3. If modifying the AI generation schema in `Generator.tsx` (now extracted to `src/lib/prompt.ts`), make sure you update the TS interfaces in `src/types/index.ts` and the UI mapping in the detail tabs.
+
+## 5. Agent Operating Preferences
+
+To ensure consistency across chat sessions, adhere to the following critical learnings:
+
+- **Component Architecture**: We strictly avoid massive "facade" hooks or monolithic orchestrators. Push logic (state, API calls, Firestore updates) down directly into the specific leaf components that own it (e.g., `GeneratorForm` handles inputs, `ReviewTab` handles saving reviews).
+- **Git Commit Messages**: All commit messages MUST be highly descriptive. They should explain *why* the change happened and provide a small summary of the changes made, while following Git best practices (a short subject line under 50 chars, a blank line, and a detailed body wrapped at 72 chars).
