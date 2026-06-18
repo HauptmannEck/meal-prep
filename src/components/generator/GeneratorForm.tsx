@@ -72,6 +72,7 @@ export default function GeneratorForm({
       }
 
       if (!isValid || !parsedData) {
+        console.error("Malformed JSON payload from Gemini API:", resultText)
         throw new Error("AI returned malformed JSON that could not be repaired.")
       }
 
