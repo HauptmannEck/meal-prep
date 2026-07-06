@@ -54,20 +54,19 @@ export default function GeneratorForm({
       let startIndex = cleanText.indexOf("{")
       if (startIndex === -1) throw new Error("Could not find JSON object bounds in response.")
 
-      let jsonStr = cleanText.substring(startIndex)
       let parsedData
       let isValid = false
+      let endIdx = cleanText.lastIndexOf("}")
 
-      // Iteratively strip trailing characters if the model trailed off
-      while (jsonStr.length > 20) {
+      // Iteratively look for the correct closing brace, ignoring trailing garbage
+      while (endIdx > startIndex) {
         try {
-          parsedData = JSON.parse(jsonStr)
+          const attempt = cleanText.substring(startIndex, endIdx + 1)
+          parsedData = JSON.parse(attempt)
           isValid = true
           break
         } catch (err) {
-          const lastBrace = jsonStr.lastIndexOf("}")
-          if (lastBrace === -1) break
-          jsonStr = jsonStr.substring(0, lastBrace).trim()
+          endIdx = cleanText.lastIndexOf("}", endIdx - 1)
         }
       }
 
