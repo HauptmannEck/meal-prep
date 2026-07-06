@@ -6,6 +6,7 @@ import { useRateLimit } from "../../hooks/useRateLimit"
 import { buildSystemPrompt } from "../../lib/prompt"
 import ManualFallbackForm from "./ManualFallbackForm"
 import AutoGenerator from "./AutoGenerator"
+import ProteinSelector from "../ProteinSelector"
 
 interface GeneratorFormProps {
   recipes: Recipe[]
@@ -33,6 +34,8 @@ export default function GeneratorForm({
   const [bulkIngredient, setBulkIngredient] = useState("")
   const [cravings, setCravings] = useState("")
   const [targetServings, setTargetServings] = useState<number | "">(preferences?.targetServings || 6)
+  const [proteinMode, setProteinMode] = useState<"whitelist" | "blacklist">(preferences?.proteinMode || "blacklist")
+  const [proteinSelections, setProteinSelections] = useState<string[]>(preferences?.proteinSelections || [])
   const [error, setError] = useState<string | null>(null)
 
   // Construct the prompt deterministically based on form state
@@ -42,8 +45,10 @@ export default function GeneratorForm({
       targetServings,
       cravings,
       bulkIngredient,
+      proteinMode,
+      proteinSelections,
     })
-  }, [recipes, targetServings, cravings, bulkIngredient])
+  }, [recipes, targetServings, cravings, bulkIngredient, proteinMode, proteinSelections])
 
   // Core parsing logic (used by both API and manual paths)
   const handleRawResult = (resultText: string) => {
@@ -159,6 +164,15 @@ export default function GeneratorForm({
               value={cravings}
               onChange={(e) => setCravings(e.target.value)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200 placeholder:text-slate-600"
+            />
+          </div>
+
+          <div className="border-t border-slate-800 pt-5">
+            <ProteinSelector 
+              mode={proteinMode} 
+              setMode={setProteinMode} 
+              selections={proteinSelections} 
+              setSelections={setProteinSelections} 
             />
           </div>
 

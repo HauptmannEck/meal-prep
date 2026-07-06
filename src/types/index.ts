@@ -25,6 +25,8 @@ export interface Recipe {
 
 export interface UserPreferences {
   targetServings?: number
+  proteinMode?: "whitelist" | "blacklist"
+  proteinSelections?: string[]
 }
 
 export interface ApiStatus {

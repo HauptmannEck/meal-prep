@@ -5,6 +5,8 @@ interface PromptContext {
   targetServings: number | ""
   cravings: string
   bulkIngredient: string
+  proteinMode?: "whitelist" | "blacklist"
+  proteinSelections?: string[]
 }
 
 /**
@@ -16,6 +18,8 @@ export function buildSystemPrompt({
   targetServings,
   cravings,
   bulkIngredient,
+  proteinMode = "blacklist",
+  proteinSelections = [],
 }: PromptContext): string {
   const highRated = recipes
     .filter((r) => (r.rating || 0) >= 8)
@@ -31,17 +35,26 @@ export function buildSystemPrompt({
 
   const safeServings = targetServings || 1
 
+  let proteinRule = ""
+  if (proteinSelections.length > 0) {
+    if (proteinMode === "whitelist") {
+      proteinRule = `\nPROTEIN RESTRICTION: The user ONLY eats the following proteins: ${proteinSelections.join(", ")}. You MUST exclusively use proteins from this list.`
+    } else {
+      proteinRule = `\nPROTEIN RESTRICTION: The user CANNOT eat the following proteins: ${proteinSelections.join(", ")}. You MUST NOT generate any meals that feature these proteins.`
+    }
+  }
+
   const varianceRules = cravings
     ? `1. VARIANCE OVERRIDE: The user requested a specific craving ("${cravings}"). All 3 options MUST aggressively target this craving. It is entirely acceptable and expected to share proteins, cuisines, or styles across all 3 options to satisfy this request. Give 3 distinct variations of their craving.
 2. Ensure the 3 options still offer variety in flavor profile or cooking method while adhering to the craving.`
-    : `1. All 3 options MUST use completely different primary proteins (e.g. if one is beef, the others cannot be beef). Strongly consider vegetarian dishes as a primary option.
+    : `1. Try to use completely different primary proteins across the 3 options (unless restricted by the user's protein selections).
 2. All 3 options MUST draw from entirely different global cuisines.
 3. All 3 options MUST use different preparation styles.`
 
   return `You are a highly creative Culinary Engine. 
 Generate exactly 3 EXTREMELY DISTINCT, wildly different low-prep (under 20 mins) workweek meal recipes scaled for exactly ${safeServings} portions.
 
-CRITICAL RULES & VARIANCE:
+CRITICAL RULES & VARIANCE:${proteinRule}
 ${varianceRules}
 4. Do NOT rely on cliches like "gochujang", "harissa", or "za'atar". Branch out into diverse and unique flavor profiles.
 5. All ingredients MUST be common enough that a standard full-size US grocery store will consistently stock them. No exotic specialty items.

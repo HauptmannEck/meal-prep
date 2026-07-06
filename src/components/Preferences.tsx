@@ -3,6 +3,7 @@ import { Save, RefreshCw } from "lucide-react"
 import { doc, setDoc } from "firebase/firestore"
 import { db, appId } from "../lib/firebase"
 import { UserPreferences } from "../types"
+import ProteinSelector from "./ProteinSelector"
 
 interface PreferencesProps {
   userId: string
@@ -11,6 +12,8 @@ interface PreferencesProps {
 
 export default function Preferences({ userId, preferences }: PreferencesProps) {
   const [targetServings, setTargetServings] = useState<number>(preferences.targetServings || 6)
+  const [proteinMode, setProteinMode] = useState<"whitelist" | "blacklist">(preferences.proteinMode || "blacklist")
+  const [proteinSelections, setProteinSelections] = useState<string[]>(preferences.proteinSelections || [])
   const [isSaving, setIsSaving] = useState(false)
   const [saveMessage, setSaveMessage] = useState("")
 
@@ -23,6 +26,8 @@ export default function Preferences({ userId, preferences }: PreferencesProps) {
         prefRef,
         {
           targetServings: Number(targetServings),
+          proteinMode,
+          proteinSelections,
         },
         { merge: true },
       )
@@ -57,6 +62,15 @@ export default function Preferences({ userId, preferences }: PreferencesProps) {
               value={targetServings}
               onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
+            />
+          </div>
+
+          <div className="border-t border-slate-800 pt-6">
+            <ProteinSelector 
+              mode={proteinMode} 
+              setMode={setProteinMode} 
+              selections={proteinSelections} 
+              setSelections={setProteinSelections} 
             />
           </div>
 
