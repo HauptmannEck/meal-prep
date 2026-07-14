@@ -1,0 +1,19 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /artifacts/{appId} {
+      match /users/{userId} {
+        match /recipes/{recipeId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+        match /preferences/{preferenceId} {
+          allow read, write: if request.auth != null && request.auth.uid == userId;
+        }
+      }
+      match /global/apiStatus {
+        allow read, write: if request.auth != null;
+      }
+    }
+  }
+}
