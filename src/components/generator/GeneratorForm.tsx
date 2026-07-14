@@ -34,6 +34,7 @@ export default function GeneratorForm({
   const [bulkIngredient, setBulkIngredient] = useState("")
   const [cravings, setCravings] = useState("")
   const [targetServings, setTargetServings] = useState<number | "">(preferences?.targetServings || 6)
+  const [maxPrepTime, setMaxPrepTime] = useState<number | "">(preferences?.maxPrepTime || 30)
   const [proteinMode, setProteinMode] = useState<"whitelist" | "blacklist">(preferences?.proteinMode || "blacklist")
   const [proteinSelections, setProteinSelections] = useState<string[]>(preferences?.proteinSelections || [])
   const [error, setError] = useState<string | null>(null)
@@ -43,12 +44,13 @@ export default function GeneratorForm({
     return buildSystemPrompt({
       recipes,
       targetServings,
+      maxPrepTime,
       cravings,
       bulkIngredient,
       proteinMode,
       proteinSelections,
     })
-  }, [recipes, targetServings, cravings, bulkIngredient, proteinMode, proteinSelections])
+  }, [recipes, targetServings, maxPrepTime, cravings, bulkIngredient, proteinMode, proteinSelections])
 
   // Core parsing logic (used by both API and manual paths)
   const handleRawResult = (resultText: string) => {
@@ -135,6 +137,27 @@ export default function GeneratorForm({
                     setTargetServings("")
                   } else {
                     setTargetServings(parseInt(val) || 1)
+                  }
+                }}
+                className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-slate-400 mb-1.5">
+                Max Prep Time (mins)
+              </label>
+              <input
+                type="number"
+                min="5"
+                max="180"
+                step="5"
+                value={maxPrepTime}
+                onChange={(e) => {
+                  const val = e.target.value
+                  if (val === "") {
+                    setMaxPrepTime("")
+                  } else {
+                    setMaxPrepTime(parseInt(val) || 30)
                   }
                 }}
                 className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"

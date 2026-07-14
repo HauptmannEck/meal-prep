@@ -25,6 +25,7 @@ export interface Recipe {
 
 export interface UserPreferences {
   targetServings?: number
+  maxPrepTime?: number
   proteinMode?: "whitelist" | "blacklist"
   proteinSelections?: string[]
 }

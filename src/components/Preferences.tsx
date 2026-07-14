@@ -12,6 +12,7 @@ interface PreferencesProps {
 
 export default function Preferences({ userId, preferences }: PreferencesProps) {
   const [targetServings, setTargetServings] = useState<number>(preferences.targetServings || 6)
+  const [maxPrepTime, setMaxPrepTime] = useState<number>(preferences.maxPrepTime || 30)
   const [proteinMode, setProteinMode] = useState<"whitelist" | "blacklist">(preferences.proteinMode || "blacklist")
   const [proteinSelections, setProteinSelections] = useState<string[]>(preferences.proteinSelections || [])
   const [isSaving, setIsSaving] = useState(false)
@@ -26,6 +27,7 @@ export default function Preferences({ userId, preferences }: PreferencesProps) {
         prefRef,
         {
           targetServings: Number(targetServings),
+          maxPrepTime: Number(maxPrepTime),
           proteinMode,
           proteinSelections,
         },
@@ -61,6 +63,24 @@ export default function Preferences({ userId, preferences }: PreferencesProps) {
               max="20"
               value={targetServings}
               onChange={(e) => setTargetServings(parseInt(e.target.value) || 1)}
+              className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-medium text-slate-400 mb-2">
+              Max Prep Time (minutes)
+            </label>
+            <p className="text-xs text-slate-500 mb-3">
+              This is the maximum amount of time a recipe should take to prep and cook.
+            </p>
+            <input
+              type="number"
+              min="5"
+              max="180"
+              step="5"
+              value={maxPrepTime}
+              onChange={(e) => setMaxPrepTime(parseInt(e.target.value) || 30)}
               className="w-full bg-slate-950 border border-slate-800 rounded-lg px-4 py-2.5 text-sm focus:outline-none focus:border-teal-500/50 text-slate-200"
             />
           </div>
